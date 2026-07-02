@@ -1,0 +1,81 @@
+graph TD
+    subgraph Kallor["Källor"]
+        PDF[PDF: slides och kompendier]
+        MD[Kursdokument .md]
+        TRANS[53 YouTube-transkript .md]
+    end
+
+    subgraph MVP1["MVP v1 - Ingestion & Metadata"]
+        ING[Ingestion-script]
+        S3[(LocalStack S3 - Bronze)]
+        PG1[(PostgreSQL: Document<br/>status=PENDING)]
+    end
+
+    subgraph MVP2["MVP v2 - Extraktion & Transformation"]
+        EXT[PyMuPDF + MD-parser]
+        CHUNK[Chunking - semantiska block]
+        PARQUET[(Parquet - Silver)]
+    end
+
+    subgraph MVP3["MVP v3 - Intelligence & Sök"]
+        EMB[Grunden.ai bge-m3 embeddings]
+        CHROMA[(ChromaDB)]
+    end
+
+    subgraph MVP4["MVP v4 - API & RAG-djup"]
+        API[FastAPI: /ask /search /health]
+        RERANK[bge-reranker-v2-m3]
+        GEN[glm-5.2 generering]
+        SRC[sources-array]
+        EVAL[[Eval-harness 40-60 par]]
+    end
+
+    subgraph MVP45["MVP v4.5 - Bounded agentisk loop"]
+        CONF{Confidence over tröskel?}
+        REFORM[Omformulera fråga, max 1x]
+        HONEST[Svara ärligt: underlag saknas]
+    end
+
+    subgraph MVP5["MVP v5 - Orkestrering & Analys"]
+        AIRFLOW[Airflow DAG: v1 till v3]
+        DBT[dbt + DuckDB Gold-marts]
+    end
+
+    subgraph MVP6["MVP v6 - Produktionsdeployment"]
+        CD[CD till SSH-VM]
+        PROXY[Reverse proxy + TLS]
+    end
+
+    PDF --> ING
+    MD --> ING
+    TRANS --> ING
+    ING --> S3
+    ING --> PG1
+
+    S3 --> EXT
+    PG1 -. status PENDING .-> EXT
+    EXT --> CHUNK
+    CHUNK --> PARQUET
+    PARQUET -. status uppdateras .-> PG1
+
+    PARQUET --> EMB
+    EMB --> CHROMA
+    CHROMA -. vector-ID .-> PG1
+
+    CHROMA --> API
+    API --> RERANK
+    RERANK --> CONF
+    CONF -->|Hög| GEN
+    CONF -->|Lågt, första försök| REFORM
+    REFORM --> RERANK
+    CONF -->|Lågt, redan försökt| HONEST
+    GEN --> SRC
+
+    EVAL -. mäter .-> API
+
+    PG1 --> AIRFLOW
+    S3 --> AIRFLOW
+    PG1 --> DBT
+
+    API --> CD
+    CD --> PROXY
