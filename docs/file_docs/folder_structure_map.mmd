@@ -1,0 +1,8 @@
+graph LR
+    V1["MVP v1 – nu"] --> V2["MVP v2"] --> V3["MVP v3"] --> V4["MVP v4"] --> V5["MVP v5"]
+
+    V1 -.->|skapar| F1["db/ · storage/ · ingestion/"]
+    V2 -.->|skapar| F2["extraction/"]
+    V3 -.->|skapar| F3["ai/ · indexing/"]
+    V4 -.->|skapar| F4["retrieval/ · api/ · eval/"]
+    V5 -.->|skapar| F5["dags/ · dbt/"]
