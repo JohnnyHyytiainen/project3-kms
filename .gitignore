@@ -8,7 +8,6 @@
 secrets/
 
 # --- Dependency Management (uv) ---
-# Jag ignorerar miljön, men INTE uv.lock (den är min "truth")
 .venv/
 venv/
 ENV/
