@@ -1,0 +1,38 @@
+services:
+  # Postgres är inte en emulator - det är samma databasmotor som körs i produktion,
+  # bara i en lokal container istället för en molntjänst. Ingen skillnad i beteende.
+  postgres:
+    image: postgres:18
+    container_name: kms_postgres
+    environment:
+      POSTGRES_USER: kms_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}  # bara lokal dev, aldrig riktiga secrets här
+      POSTGRES_DB: kms_db
+    ports:            # host:container - byt vänster sida vid portkonflikt
+      - "5436:5432"   # 5432=standard (upptagen internt av data-lake), 5435=glossary, 5436=kms
+    volumes:
+      - postgres_data:/var/lib/postgresql   # inte /data i slutet, V18+ hanterar version-undermappen själv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kms_user -d kms_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  # LocalStack ÄR en emulator - AWS S3 går inte att ladda ner och köra lokalt,
+  # det är en molntjänst. LocalStack låtsas prata S3-API't tillräckligt bra
+  # för utveckling, utan AWS-konto eller kostnad.
+  localstack:
+    image: localstack/localstack:4.4.0 # Pinnad, sista fria community versionen INNAN konto requirements ändrades
+    container_name: kms_localstack
+    environment:
+      - SERVICES=s3
+      - DEBUG=0
+    ports:
+      - "4566:4566" # LocalStack Gateway
+    volumes:
+      - localstack_data:/var/lib/localstack
+
+volumes:
+  postgres_data:
+  localstack_data:
