@@ -15,10 +15,16 @@
     - **Done**
 
 - Start to setup `docker-compose.yml`, `LocalStack S3` and `PostgreSQL`
-    - *ongoing*
+    - **Done**
 
 - Start compiling own written docs regarding setup for `Docker, LocalStack S3 and Postgres` with good to have quick commands and reasoning behind for project report later on.
-    - *ongoing*
+    - **Done**
 
 - Setup `CI-Pipe` with linting and formatting using `github-actions`
-    - *ongoing*
+    - **Done**
+
+- Write `config.py`-theory docs regarding `alembic`
+    - **Done**
+
+- Write `src/kms/config.py`-script
+    - **Done**
