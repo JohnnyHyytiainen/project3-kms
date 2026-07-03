@@ -28,3 +28,9 @@
 
 - Write `src/kms/config.py`-script
     - **Done**
+
+- Start working on `db/models.py`, the most central file that everything else is built upon.
+    - *Ongoing*
+
+- Write docs regarding `models.py`
+    - *ongoing*
