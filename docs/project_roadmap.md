@@ -24,7 +24,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - [x] `.env.example` - miljövariabel-mall (DB-url, AWS_ENDPOINT_URL, Grunden.ai-nycklar)
 - [x] `pyproject.toml` - dependencies
 - [x] `alembic.ini` + `alembic/versions/0001_initial.py` - Document (PENDING -> EXTRACTED -> EMBEDDED -> FAILED), Chunk, User
-- [ ] `src/kms/db/models.py` - SQLAlchemy-modeller för samma tre tabeller
+- [x] `src/kms/db/models.py` - SQLAlchemy-modeller för samma tre tabeller
 
 ### Ingestion (`src/kms/ingestion/`, `src/kms/storage/`)
 - [x] `src/kms/config.py` - central konfiguration (paths, DB-url, S3-endpoint)
