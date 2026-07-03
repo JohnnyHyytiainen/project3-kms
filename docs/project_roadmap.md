@@ -21,7 +21,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 
 ### Infrastruktur & Datamodell
 - [x] `docker-compose.yml` - LocalStack (S3) + PostgreSQL
-- [ ] `.env.example` - miljövariabel-mall (DB-url, AWS_ENDPOINT_URL, Grunden.ai-nycklar)
+- [x] `.env.example` - miljövariabel-mall (DB-url, AWS_ENDPOINT_URL, Grunden.ai-nycklar)
 - [x] `pyproject.toml` - dependencies
 - [ ] `alembic.ini` + `alembic/versions/0001_initial.py` - Document (PENDING -> EXTRACTED -> EMBEDDED -> FAILED), Chunk, User
 - [ ] `src/kms/db/models.py` - SQLAlchemy-modeller för samma tre tabeller
@@ -34,7 +34,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - [ ] `file_hash`-deduplicering vid omkörning
 
 ### CI/CD
-- [ ] `.github/workflows/ci.yml` - Ruff lint + format (dag 1, inte valfritt)
+- [x] `.github/workflows/ci.yml` - Ruff lint + format (dag 1, inte valfritt)
 - [ ] `tests/unit/test_ingestion.py` - initiala unit tests
 
 ### Dokumentation
