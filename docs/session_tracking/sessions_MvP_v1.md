@@ -12,7 +12,7 @@
 *Goals for today:*
 
 - Add correct deps needed for repo
-    - *ongoing*
+    - **Done**
 
 - Start to setup `docker-compose.yml`, `LocalStack S3` and `PostgreSQL`
     - *ongoing*
