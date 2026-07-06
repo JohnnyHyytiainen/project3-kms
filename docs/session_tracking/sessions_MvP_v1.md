@@ -34,3 +34,13 @@
 
 - Write docs regarding `models.py`
     - **Done**
+---
+
+**Monday 2026-07-06**
+*Goals for today:*
+
+- Write docs regarding `src/kms/storage/s3_client.py` and S3/LocalStack.
+    - *ongoing*
+
+- Implement `s3_client.py` script
+    - *ongoing*
