@@ -48,6 +48,5 @@
 - Update `config.py`-script to include AWS values
     **Done**
 
-    
 - Implement `s3_client.py` script
-    - *ongoing*
+    - **Done**
