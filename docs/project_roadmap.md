@@ -41,7 +41,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - [ ] `README.md` - inkl. attribution + referera till KC + Debbie
 - [x] `docs/architecture/overview_kms.mmd` - Overview flowchart
 - [x] `docs/architecture/erd_model.mmd` - Document/Chunk/User (första ERD model)
-- [x] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v2 i samma stil som MVP v1
+- [] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v2 i samma stil som MVP v1
 
 ### MVP v2 - Extraktion & Transformation (Silver), HÖGST risk, bör göras tidigt
 - ETL läser PENDING filer från S3
