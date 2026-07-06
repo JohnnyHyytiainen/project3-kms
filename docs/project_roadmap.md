@@ -1,5 +1,5 @@
 # ROADMAP - Projekt 3 (arbetsnamn TBD)
-*Senast uppdaterad: 2026-07-03*
+*Senast uppdaterad: 2026-07-06*
 *status: MVP-staging finslipad, ej längre "lös"*
 
 ## Status och tidsram
@@ -28,7 +28,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 
 ### Ingestion (`src/kms/ingestion/`, `src/kms/storage/`)
 - [x] `src/kms/config.py` - central konfiguration (paths, DB-url, S3-endpoint)
-- [ ] `src/kms/storage/s3_client.py` - S3/LocalStack-klient (boto3)
+- [x] `src/kms/storage/s3_client.py` - S3/LocalStack-klient (boto3)
 - [ ] `src/kms/ingestion/course_mapping.py` - explicit repo -> course_tag, inte auto-inference
 - [ ] `src/kms/ingestion/ingest.py` - lokala kursrepon -> S3 med name-space `{course_tag}/{repo_namn}/{relativ_sökväg}`, metadata till Postgres (status: PENDING), filtyp-filter (PDF/md/transkript)
 - [ ] `file_hash`-deduplicering vid omkörning
