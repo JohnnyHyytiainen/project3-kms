@@ -39,8 +39,15 @@
 **Monday 2026-07-06**
 *Goals for today:*
 
-- Write docs regarding `src/kms/storage/s3_client.py` and S3/LocalStack.
-    - *ongoing*
+- Write docs regarding `boto3`-deps
+    - **Done**
 
+- Write docs regarding `src/kms/storage/s3_client.py` and S3/LocalStack.
+    - **Done**
+
+- Update `config.py`-script to include AWS values
+    **Done**
+
+    
 - Implement `s3_client.py` script
     - *ongoing*
