@@ -1,5 +1,5 @@
 # ROADMAP - Projekt 3 (arbetsnamn TBD)
-*Senast uppdaterad: 2026-07-03*
+*Senast uppdaterad: 2026-07-06*
 *status: MVP-staging finslipad, ej längre "lös"*
 
 ## Status och tidsram
