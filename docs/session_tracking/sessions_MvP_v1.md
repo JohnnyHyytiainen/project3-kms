@@ -50,3 +50,14 @@
 
 - Implement `s3_client.py` script
     - **Done**
+
+---
+
+**Tuesday 2026-07-07**
+*Goals for today*
+
+- Write brief course mapping docs
+    - *ongoing*
+
+- Write and implement  ingestion `course_mapping.py`script
+    *ongoing*
