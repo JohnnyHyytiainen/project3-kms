@@ -57,7 +57,7 @@
 *Goals for today*
 
 - Write brief course mapping docs
-    - *ongoing*
+    - **Done**
 
 - Write and implement  ingestion `course_mapping.py`script
-    *ongoing*
+    **Done**
