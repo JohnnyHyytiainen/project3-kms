@@ -61,3 +61,15 @@
 
 - Write and implement  ingestion `course_mapping.py`script
     **Done**
+
+---
+**Wednesday 2026-07-08**
+*Goals for today:*
+
+- Write own docs regarding `src/kms/ingestion/ingest.py`-script. The most critical script in MVP V1, the actual file that connects the rest of my scripts.
+    - *Ongoing*
+
+- Implement script and write the code for `ingest.py`
+    - *ongoing*
+
+    
