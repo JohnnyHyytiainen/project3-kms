@@ -1,5 +1,3 @@
-# project3-kms
-examensprojekt
 
 ```
 project3-kms
@@ -21,16 +19,20 @@ project3-kms
 │  │  ├─ erd_model.png
 │  │  ├─ mvp_data_pipeline.png
 │  │  └─ overview_kms.mmd
+│  ├─ commands_to_have.md
 │  ├─ docker_compose_commands.md
 │  ├─ file_docs
 │  │  ├─ folder_structure_map.mmd
 │  │  ├─ folder_structure_map.png
 │  │  └─ mvp_v1_docs
 │  │     ├─ alembic_model_revision.md
+│  │     ├─ boto3_docs_mvp_v1.md
 │  │     ├─ config_alembic_docs_mvp_v1.md
 │  │     ├─ dependencies_mvp_v1.md
 │  │     ├─ docker_compose_docs_mvp_v1.md
-│  │     └─ postgres_localstack_docs_mvp_v1.md
+│  │     ├─ ingestion_course_mapping_mvp_v1.md
+│  │     ├─ postgres_localstack_docs_mvp_v1.md
+│  │     └─ S3_LocalStack_docs_mvp_v1.md
 │  ├─ project_roadmap.md
 │  └─ session_tracking
 │     └─ sessions_MvP_v1.md
@@ -43,8 +45,10 @@ project3-kms
 │     │  ├─ models.py
 │     │  └─ __init__.py
 │     ├─ ingestion
+│     │  ├─ course_mapping.py
 │     │  └─ __init__.py
 │     ├─ storage
+│     │  ├─ s3_client.py
 │     │  └─ __init__.py
 │     └─ __init__.py
 ├─ tests
