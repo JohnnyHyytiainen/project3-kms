@@ -67,9 +67,9 @@
 *Goals for today:*
 
 - Write own docs regarding `src/kms/ingestion/ingest.py`-script. The most critical script in MVP V1, the actual file that connects the rest of my scripts.
-    - *Ongoing*
+    - **Done**
 
 - Implement script and write the code for `ingest.py`
-    - *ongoing*
+    - **Done**
 
     
