@@ -1,4 +1,4 @@
-# Docs regarding my ingestion course mapping script
+# Docs regarding my course mapping script
 ADR(Arkitekturbeslutsrapport - Architecture Decision Record) or as I would call it AUR(Architecture Understanding Record).
 
 ### 1) Skarpare definition av Single Source Of Truth (SSOT)

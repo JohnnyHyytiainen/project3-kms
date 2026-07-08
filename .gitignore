@@ -125,3 +125,6 @@ serving/grafana/plugins/
 
 # --- EDA NOTEBOOKS ---
 notebooks/
+
+# --- Repon for my DATA ---
+repos_for_data/
