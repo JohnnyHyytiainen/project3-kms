@@ -7,13 +7,13 @@ To open up python shell in terminal I just need to write:
 - `python` in terminal.
 
 ---
-
+### Testing src/kms/ingestion/course_mapping script
 To test my `get_course_tag`-function in my `course_mapping`-script:
 - `from kms.ingestion.course_mapping import get_course_tag`
 - `get_course_tag("python_course")`
 
 ---
-
+### Testing src/kms/ingestion/ingest script
 To test both my `build_file_record` and `compute_file_hash`-functions in my `ingest.py` script:
 1) Import my tools with:
     - ` from pathlib import Path `
@@ -34,4 +34,6 @@ To test both my `build_file_record` and `compute_file_hash`-functions in my `ing
     - ` min_hash `
         - Expected output:
         - 'd3a0a0ce48749af3e56949a113fd9161eef213843eb3eebfb1701a7946ec44ae'
+
+---
 
