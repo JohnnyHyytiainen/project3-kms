@@ -93,7 +93,7 @@ The entire flow step by step of my `src/kms/ingestion/ingest.py`-script.
 
 `session.execute()` returns a `Result` object where each row is technically a `Row-tuple`. `.scalars()` unpacks each `Row` to just the value itself. `.all()` materializes the entire result into a list. Wrapping the whole thing in `set()` accomplishes two things at once. It both collapses `duplicates` (my pairs with `(1)`-suffixes have the SAME hash but DIFFERENT `s3_key` values) and provides `O(1)` membership checks instead of a linear scan, the same habit that led to `REPO_TO_COURSE_TAG` being a dict rather than a list.
 
-
+## Full overview
 ```mermaid
 ---
 config:

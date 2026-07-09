@@ -84,8 +84,24 @@
     - **Done**
 
 - Expand on docs regarding testing and implementation into `CI/CD-Pipeline` and its importance.
-    - *Ongoing*
+    - **Done**
 
 - Update `ci.yml` script to include `test_ingestion.py`-logic for every PR before a merge to main
-    *ongoing*
+    **Done**
+
+- Update `pyproject.toml` with `[tool.pytest.ini_options] testpaths = ["tests"]` to only run MY tests locally and nothing else.
+    - **Done**
+
+---
+
+**Friday 2026-07-10**
+*Goals for today:*
+- Update repos README.md as projects frontpage
+    - *ongoing*
+
+- Start planning `MVP v2` in more detail
+    - *ongoing*
+
+- Start working on `MVP v2`
+    - *ongoing*
 

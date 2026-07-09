@@ -65,3 +65,32 @@ flowchart TB
 
     PHASE1 -. "samma två fas mönster som ingest.py scriptet själv." .-> PHASE2
 ```
+
+## Implementing the testing of phase 2 with MagicMock
+- `MagicMock` is an object that accepts whatever methodcall is sent and only pretends to succeed without any configuration. This is why `s3_client = MagicMock()` is more than enough to test `happy path`/`dedupe`/`OSError`. It succeeds per default. To simulate an ERROR I will need to configure `.side_effect` on the SPECIFIC method I want to fail, in this case it will be `s3_client.upload_file.side_effect = ClientError(..)` and my mock should throw that exception instead next time it gets called.
+
+For this test I will also use something I've never used before with `Pytest`, that is `monkeypatch` which is a fixture build in to `pytest` to temporarily switch a method on a real object(`session.commit`). It will get reset automatically after the test has been ran. I am only using it to trigger my `OperationalError-test` since `SQLite` cannot naturally produce a '`Postgres`' has died error so it has to be FORCED now.
+
+---
+
+### With this last implementation of tests
+With these last implementation of tests in my testing suite I will have covered everything my `ingest.py` script covers. And more specifically, it completely covers everything written in my last flowchart in ##full overview section in my `ingestion_script_mvp_v1.md` document
+
+## Full testing overview
+```mermaid
+---
+config:
+  theme: neo-dark
+---
+flowchart TD
+    START["ingest_one_file(record, ...)"] --> HASH["compute_file_hash()"]
+    HASH -->|"OSError"| T1["test_unreadable_file_skips"]
+    HASH -->|"OK"| DUP{"hash i existing_hashes?"}
+    DUP -->|"Ja"| T2["test_dedup_skips_before_any_io"]
+    DUP -->|"Nej"| UPLOAD["upload_file()"]
+    UPLOAD -->|"ClientError"| T3["test_s3_upload_failure_skips"]
+    UPLOAD -->|"OK"| COMMIT["session.commit()"]
+    COMMIT -->|"IntegrityError - samma s3_key"| T4["test_integrity_error_crashes_and_session_still_usable"]
+    COMMIT -->|"OperationalError - INTE fångad"| T5["test_operational_error_is_not_caught"]
+    COMMIT -->|"OK"| T6["test_happy_path"]
+```
