@@ -5,6 +5,10 @@
 *Se flowchart nedan för visuell förståelse kring hur flödet för just miljövariabler fungerar*
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 graph LR
     ENV[".env"] --> SET["Settings<br/>config.py"]
     SET -->|settings.database_url| ENVPY["alembic/env.py"]

@@ -23,6 +23,10 @@ Det här är den delen som kopplar ihop allt till `architecture and system desig
 Det är precis det här mönstret som gör `Airflow`-orchestration i MVP v5 möjlig senare. en `DAG` kan fråga "vilka Document har `status=PENDING`?" utan att veta ett dugg om hur de blev `PENDING`. Utan `models.py` som gemensam, frågbar sanning finns det ingen plats att ställa den frågan.
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 graph TB
     subgraph Infrastructure ["Infrastruktur - gör databasen nåbar"]
         DC["docker-compose.yml"]
