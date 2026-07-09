@@ -198,7 +198,7 @@ def ingest_one_file(
 
     1: File cannot be read
     2: Transient network error with S3
-    3: Same s3_key DIFFERENT hash.
+    3: Same s3_key raises RuntimeError
     """
     # === FELTYP 1: Lokalt LÄSFEL ===
     try:

@@ -9,6 +9,10 @@ To make it as easy and smooth as possible I updated my `.gitignore` to completly
 ### Regarding my youtube transcripts and how I should try and navigate around it and my course tags
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 flowchart TD
     A["Fil: youtube_transcripts/data/xyz.md"] --> B["get_course_tag('youtube_transcripts')<br/>SAMMA anrop som för vanliga repos<br/>= 'youtube_transcripts'"]
     A --> C["get_transcript_course_tag('xyz.md')<br/>EXTRA anrop, bara för den grenen<br/>= t.ex 'sql_analytics'"]
@@ -23,6 +27,10 @@ This will create a genuine distinction between the `S3 key` (where the file actu
 ### Deduplication and how I should handle it
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 flowchart TD
     A["Start av ingest.py-körning"] --> B["EN fråga: SELECT file_hash FROM documents"]
     B --> C["Python set: existing_hashes"]
@@ -50,6 +58,10 @@ Using `file_hash` as a deduplication key relies on the same fundamental concept 
 Worth pointing out is: **no `| None`, no `nullable=True`**. This means a `Document` row physically CANT exist without a hash. This forces a logical branch that isnt a matter of preference, but a consequence of the schema:
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 flowchart TD
     A["A) Fil hittad av walk_source_files"] --> B["B) compute_file_hash(fil)"]
     B -->|"Fel: kan ej läsas<br/>PermissionError etc"| C["C) Logga, hoppa över<br/>INGEN Postgres-rad<br/>file_hash är NOT NULL - finns inget att spara"]
@@ -81,8 +93,12 @@ The entire flow step by step of my `src/kms/ingestion/ingest.py`-script.
 
 `session.execute()` returns a `Result` object where each row is technically a `Row-tuple`. `.scalars()` unpacks each `Row` to just the value itself. `.all()` materializes the entire result into a list. Wrapping the whole thing in `set()` accomplishes two things at once. It both collapses `duplicates` (my pairs with `(1)`-suffixes have the SAME hash but DIFFERENT `s3_key` values) and provides `O(1)` membership checks instead of a linear scan, the same habit that led to `REPO_TO_COURSE_TAG` being a dict rather than a list.
 
-
+## Full overview
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 flowchart TD
     START(["run_ingestion()"]) --> ENGINE["Skapa DB-engine + S3-klient<br/>ensure_bucket_exists()"]
     ENGINE --> LOAD["load_existing_hashes(session)<br/>EN fråga, hela file_hash-kolumnen"]

@@ -78,9 +78,30 @@
 *Goals for today:*
 
 - Docs regarding unit testing `tests/unit/test_ingestion.py`
+    - **Done**
+
+- Write and implement testing script to test logic in `src/kms/ingestion/ingest.py` script
+    - **Done**
+
+- Expand on docs regarding testing and implementation into `CI/CD-Pipeline` and its importance.
+    - **Done**
+
+- Update `ci.yml` script to include `test_ingestion.py`-logic for every PR before a merge to main
+    **Done**
+
+- Update `pyproject.toml` with `[tool.pytest.ini_options] testpaths = ["tests"]` to only run MY tests locally and nothing else.
+    - **Done**
+
+---
+
+**Friday 2026-07-10**
+*Goals for today:*
+- Update repos README.md as projects frontpage
     - *ongoing*
 
-- Write and implement testing suite into `ci pipe` for `PRs`
+- Start planning `MVP v2` in more detail
     - *ongoing*
 
-    
+- Start working on `MVP v2`
+    - *ongoing*
+

@@ -4,6 +4,10 @@ Brief docs regarding S3 and LocalStack for my own purposes to deepen understandi
 ## Diagram: Where s3_client.py's respolsibility end
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 flowchart TD
     A["Lokala kursrepos<br/>(redan klonade på disk)"] --> B["ingest.py<br/>(kommande steg)"]
     B -->|"repo_namn"| C["course_mapping.py<br/>(kommande steg)"]

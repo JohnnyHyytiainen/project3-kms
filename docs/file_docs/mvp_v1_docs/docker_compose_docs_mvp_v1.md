@@ -7,6 +7,10 @@ I min compose kommer jag i MVP v1 att använda två tjänster. Två tjänster so
 2) - **LocalStack ÄR en emulator.** `AWS S3` går inte att ladda ner och köra lokalt, just för att det är en molntjänst, inte en mjukvara jag äger en kopia av. `LocalStack` låtsas prata `S3`s `API` tillräckligt bra för utveckling, utan `AWS`-konto eller kostnad. Det är därför Jag redan konstaterat att `LocalStack` är `dev/test`-only i nuvarande stadie, den ersätts av riktig S3 via en miljövariabel NÄR/OM går till prod, inte en kodändring.
 
 ```mermaid
+---
+config:
+  theme: neo-dark
+---
 graph TB
     subgraph Host["Min maskin (host)"]
         Code["Python-kod<br/>config.py, senare ingest.py"]

@@ -41,3 +41,8 @@ jobs:
       # Steg F) Kör Ruff för att kolla formatering
       - name: Format check using Ruff
         run: uv run ruff format --check .
+
+      # Steg G) Kör Pytest - Testerna får sin egna dummy .env variable från tests/unit/conftest.py
+      # ALDRIG riktig .env, det behövs ej och den är .gitignored sedan tidigare
+      - name: Run tests
+        run: uv run pytest
