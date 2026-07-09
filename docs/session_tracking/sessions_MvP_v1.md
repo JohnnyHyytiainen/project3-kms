@@ -78,9 +78,14 @@
 *Goals for today:*
 
 - Docs regarding unit testing `tests/unit/test_ingestion.py`
-    - *ongoing*
+    - **Done**
 
-- Write and implement testing suite into `ci pipe` for `PRs`
-    - *ongoing*
+- Write and implement testing script to test logic in `src/kms/ingestion/ingest.py` script
+    - **Done**
 
-    
+- Expand on docs regarding testing and implementation into `CI/CD-Pipeline` and its importance.
+    - *Ongoing*
+
+- Update `ci.yml` script to include `test_ingestion.py`-logic for every PR before a merge to main
+    *ongoing*
+

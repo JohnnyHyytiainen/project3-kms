@@ -11,7 +11,9 @@ The *testing pyramid* is a framework used in software development made to create
 2) **Integration tests, the middle of the pyramid**. The integration tests are supposed to check how different parts/modules of my codebase works together. They are here to make sure all the pieces can talk to each other correctly before entering production. They make up the second biggest part of the pyramid, they take longer time to run compared to the unit tests but are the next step in testing.
 
 3) **End-to-end(E2E) or UI tests, the top of the pyramid**. The E2E tests *verify* the entire platform/application. They are supposed to simulate a real user using your platform/app/product. These tests are slow and take the longest time to run and the cost for them are the most expensive and fragile. Lets say if a button might have changed position in the dashboard or in the UI they will break.
+---
 
+## Data testing pyramid
 With these 3 steps above you have an entire testing pyramid from the software development perspective. There are several different types of testing pyramids. There is for example a data testing pyramid that is devided into 4 steps.
 
 1) **Data Quality**. This bottom layer tests the accuracy and consistency of your data and make the foundation. These run against individual fields and values, they are fast and targeted and make up the LARGEST share of a test suite, when *ONE* fails you're supposed to know exactly which column or metric to investigate.
