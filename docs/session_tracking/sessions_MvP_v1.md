@@ -72,4 +72,15 @@
 - Implement script and write the code for `ingest.py`
     - **Done**
 
+---
+
+**Thursday 2026-07-09**
+*Goals for today:*
+
+- Docs regarding unit testing `tests/unit/test_ingestion.py`
+    - *ongoing*
+
+- Write and implement testing suite into `ci pipe` for `PRs`
+    - *ongoing*
+
     
