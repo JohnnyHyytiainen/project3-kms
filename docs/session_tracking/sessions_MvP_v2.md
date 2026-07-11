@@ -13,4 +13,4 @@
     - *ongoing*
 
 - Write PDF extraction docs regerding extraction + chunking of PDFs using `PyMuPDF`-deps
-    - *ongoing* 
+    - **Done** 
