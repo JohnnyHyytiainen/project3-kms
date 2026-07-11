@@ -92,7 +92,7 @@ Courses developed and delivered via [AIgineerAB](https://github.com/AIgineerAB) 
 
 ## 6. License
 
-MIT - see [LICENSE](LICENSE) *(file to be added)*.
+MIT - see [LICENSE](https://github.com/JohnnyHyytiainen/project3-kms/blob/main/LICENSE).
 
 ## 7. Author
 
