@@ -11,3 +11,6 @@
 
 - Start working on MVP v2 task 1
     - *ongoing*
+
+- Write PDF extraction docs regerding extraction + chunking of PDFs using `PyMuPDF`-deps
+    - *ongoing* 

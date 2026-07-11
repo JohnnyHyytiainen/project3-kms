@@ -1,0 +1,14 @@
+---
+config:
+  theme: neo-dark
+---
+flowchart TD
+    S3["S3: PENDING-fil<br/>(PDF eller .md)"] --> TYPE{"Filtyp?"}
+    TYPE -->|PDF| OPEN["PyMuPDF: Öppna dokument"]
+    OPEN --> PAGE["Per sida: get_text('dict')"]
+    PAGE --> FILTER["Filtrera sidhuvud/sidfot<br/>via position + fontstorlek"]
+    FILTER --> RAWTEXT["Ren text per dokument,<br/>läsningsordning rekonstruerad"]
+    TYPE -->|md / transkript| MDPARSE["Markdown-parser<br/>(enklare - redan strukturerad text)"]
+    MDPARSE --> RAWTEXT
+    RAWTEXT --> CHUNK["Chunking<br/>(nästa steg)"]
+    CHUNK --> PARQUET[("Parquet - Silver")]

@@ -99,9 +99,3 @@
 - Update repos README.md as projects frontpage
     - **Done**
 
-- Start planning `MVP v2` in more detail
-    - *ongoing*
-
-- Start working on `MVP v2`
-    - *ongoing*
-
