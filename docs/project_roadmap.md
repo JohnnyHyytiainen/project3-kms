@@ -85,7 +85,6 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 
 
 
-- *Notera: en PoC är en datapunkt, inte ett bevis. Fortsatt validering på bredare/sämre PDF selection innan v2 kan anses som klar. De två tidiga PoC's (lokal MiniLM + Grunden.ai bge-m3) validerade en enkel, enkolumns text-PDF. v2 är inte "air-tight" förrän extraktionen är testad mot bredare/sämre kursmaterial: tvåkolumns-slides, tabeller, upprepade sidhuvud/sidfot.*
 
 
 ### MVP v3 - Intelligence & Sök (RAG engine)
