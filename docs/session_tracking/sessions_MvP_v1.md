@@ -1,6 +1,6 @@
 # Session tracking notes for MvP v1
 *Started: 2026-07-02*
-*Completed:*
+*Completed: 2026-07-11*
 ---
 **Thursday 2026-07-02**
 *Goals for today:*
@@ -97,7 +97,7 @@
 **Friday 2026-07-11**
 *Goals for today:*
 - Update repos README.md as projects frontpage
-    - *ongoing*
+    - **Done**
 
 - Start planning `MVP v2` in more detail
     - *ongoing*

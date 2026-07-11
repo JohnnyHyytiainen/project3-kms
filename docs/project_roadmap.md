@@ -1,5 +1,5 @@
 # ROADMAP - Projekt 3 (arbetsnamn TBD)
-*Senast uppdaterad: 2026-07-06*
+*Senast uppdaterad: 2026-07-11*
 *status: MVP-staging finslipad, ej längre "lös"*
 
 ## Status och tidsram
@@ -35,10 +35,10 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 
 ### CI/CD
 - [x] `.github/workflows/ci.yml` - Ruff lint + format (dag 1, inte valfritt)
-- [ ] `tests/unit/test_ingestion.py` - initiala unit tests
+- [x] `tests/unit/test_ingestion.py` - initiala unit tests
 
 ### Dokumentation
-- [ ] `README.md` - inkl. attribution + referera till KC + Debbie
+- [x] `README.md` - inkl. attribution + referera till KC + Debbie
 - [x] `docs/architecture/overview_kms.mmd` - Overview flowchart
 - [x] `docs/architecture/erd_model.mmd` - Document/Chunk/User (första ERD model)
 - [] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v2 i samma stil som MVP v1
