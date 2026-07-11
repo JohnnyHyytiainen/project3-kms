@@ -16,4 +16,4 @@
     - **Done**
 
 - Branch out and start writing `src/kms/extraction/pdf_extractor.py` script
-    - *ongoing*
+    - *semi-done*
