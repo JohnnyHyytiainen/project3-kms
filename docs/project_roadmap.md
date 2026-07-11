@@ -41,18 +41,52 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - [x] `README.md` - inkl. attribution + referera till KC + Debbie
 - [x] `docs/architecture/overview_kms.mmd` - Overview flowchart
 - [x] `docs/architecture/erd_model.mmd` - Document/Chunk/User (första ERD model)
-- [] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v2 i samma stil som MVP v1
+- [x] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v2 i samma stil som MVP v1
 
-### MVP v2 - Extraktion & Transformation (Silver), HÖGST risk, bör göras tidigt
-- ETL läser PENDING filer från S3
+## MVP v2 - Extraktion & Transformation
+*Tag: `v2.0`. Pågående, Silver - HÖGSTA risken i hela projektet, bör göras tidigt*
 
-- Textextraktion: .pdf (PyMuPDF) + .md (inklusive 53 transkript)
+### Extraction (`src/kms/extraction/`)
+- [ ] `pdf_extractor.py` - PDF -> Ren text. Landa på rätt nivå. `get_text("text")` -> `sort=True` -> `get_text("dict")` -> `pymupdf4llm.to_markdown()`. Se `docs/file_docs/mvp_v2_docs/pdf_extraction_docs_mvp_v2.md` för förklaring.
+- [ ] Sidhuvud/sidfot-filtrering - "Fälla nr 3", KRITISKT *innan* chunking sker.
+- [ ] Tabellhantering - "Fälla nr 2", `page.find_tables()` eller `pymupdf4llm`.
+- [ ] `transcript_parser.py` - `youtube_transcripts`-grenen hanteras separat från vanliga `.md`-kursdokument (samma `source_type`, olika struktur, avgörs via `s3_key-prefix`/`course_tag` och inte `source_type` ensamt). Behåller `[HH:MM:SS]`-tidsstämplar som `chunk-metadata` (bekräftat finns i materialet).
+- [ ] Vanliga `.md`-kursdokument, enklaste extraktionsfallet, redan strukturerad text
 
-- Chunking-logik (semantiska block)
+### Chunking (`src/kms/extraction/chunker.py`)
+- [ ] Strukturmedveten `chunking`: Dela på md-rubriker (`# / ##`), samma kod som för PDF.
+- [ ] Storlek + overlap konfigurerbart, startpunkt 200–600 token / 10–20% overlap (se `pdf_chunking_docs_mvp_v2.md`), inte hårdkodat, ska kunna fine-tunas empiriskt mot MVP v4s eval-harness senare vid behov.
+- [ ] `Minimum lenght`-filter - kastar bort sannolikt brus (isolerade sidfotsrester) innan embedding.
+- [ ] Metadata per chunk -> `Chunk.source_location` (JSONB, finns redan i schemat): sida (PDF), rubrik/radintervall (markdown), tidsstämpel-intervall (transkript)
 
-- Parquet till Silver, status uppdateras via ORM
 
-- *Notera: en PoC är en datapunkt, inte ett bevis. Fortsatt validering på bredare/sämre PDF selection innan v2 kan anses som klar.*
+### Silver-lagring och status uppdatering
+- [ ] `.parquet` bor i samma `S3-bucket` som resterande data men med nytt `silver/`-prefix. Återanvänder refan befintlig infrastruktur och ingen ny `bucket` behövs.
+- [ ] `src/kms/storage/parquet_writer.py` - `Chunkad text` -> `Parquet` samma SoC princip som `s3_client.py` (Storage vet HUR, extraction vet VAD).
+- [ ] `src/kms/extraction/extract.py` - orchestrator, analog till `ingest.py`: Hämtar `PENDING`-dokument, extraherar, chunkar och skriver `.parquet`+ `Chunk`-rader, uppdaterar `Document.status` -> `EXTRACTED` eller `FAILED`.
+- [ ] Implementera felkategorier för `extract.py`. Samma three level tänk som `ingest.py` (läs/verktygsfel -> skip och logga)
+
+### Config
+- [ ] `config.py` - Nya `Settings`-fält: `chunk`-storlek/overlap-defaults med `S3_SILVER_PREFIX`.
+
+### CI/CD
+- [ ] `tests/unit/test_extraction.py` - rena funktioner (`extractor`, `chunker`) testbara utan `I/O`, samma uppdelning som `ingest.py` testerna.
+- [ ] Testdata: **minst** en medvetet "smutsig" PDF (två kolumner, tabell, sidfot) utöver PoC:ens enkla fall annars blir aldrig Fälla 1–3 testad på riktigt. 
+
+### Dokumentation
+- [x] `docs/file_docs/mvp_v2_docs/pdf_extraction_docs_mvp_v2.md`
+- [x] `docs/file_docs/mvp_v2_docs/pdf_chunking_docs_mvp_v2.md`
+- [x] `docs/architecture/` - Dokumentera och lägg in extraktions och chunking diagram
+- [] `docs/project_roadmap.md` - Uppdatera och stycka upp MVP v3 i samma stil som MVP v1+v2
+
+
+    
+```
+
+
+
+- *Notera: en PoC är en datapunkt, inte ett bevis. Fortsatt validering på bredare/sämre PDF selection innan v2 kan anses som klar. De två tidiga PoC's (lokal MiniLM + Grunden.ai bge-m3) validerade en enkel, enkolumns text-PDF. v2 är inte "air-tight" förrän extraktionen är testad mot bredare/sämre kursmaterial: tvåkolumns-slides, tabeller, upprepade sidhuvud/sidfot.*
+
 
 ### MVP v3 - Intelligence & Sök (RAG engine)
 - **ChromaDB** (ändrat från Qdrant i originalutkastet, redan bevisat mönster som funkar, rätt skala för v0. Qdrant sparas till framtida iteration om/när skala kräver det)
