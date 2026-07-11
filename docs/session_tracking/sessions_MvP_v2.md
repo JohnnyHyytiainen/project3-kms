@@ -7,7 +7,7 @@
 *Goals for today:*
 
 - Start MvP v2 planning and break it up in detailed tasks in `project_roadmap.md`, same as MVP v1
-    - *ongoing*
+    - **Done**
 
 - Start working on MVP v2 task 1
     - *ongoing*
