@@ -1,0 +1,15 @@
+---
+config:
+  theme: neo-dark
+---
+flowchart TD
+    RAW["Ren text per dokument<br/>(fran extraktion)"] --> STRUCT["Dela på strukturella gränser<br/>(md rubriker / PDF sidor / stycken)"]
+    STRUCT --> SIZE{"Sektionsstorlek?"}
+    SIZE -->|"För stor"| SPLIT["Dela vidare med overlap<br/>(starting point: ~300 token, 15%)"]
+    SIZE -->|"Lagom"| KEEP["Behåll som EN chunk"]
+    SIZE -->|"För liten - möjlig brus"| FILTER{"Under min-längd?"}
+    FILTER -->|Ja| DROP["Kasta - sannolikt sidfot/brus"]
+    FILTER -->|Nej| KEEP
+    SPLIT --> META["Tagga metadata:<br/>document_id, position, rubrik, sida/tidsstämpel"]
+    KEEP --> META
+    META --> PARQUET[("Parquet - Silver<br/>Klar för MVP v3 embeddings")]
