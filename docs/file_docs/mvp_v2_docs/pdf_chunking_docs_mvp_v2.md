@@ -53,7 +53,7 @@ config:
   theme: neo-dark
 ---
 flowchart TD
-    RAW["Ren text per dokument<br/>(fran extraktion)"] --> STRUCT["Dela på strukturella gränser<br/>(md rubriker / PDF sidor / stycken)"]
+    RAW["Ren text per dokument<br/>(från extraktion)"] --> STRUCT["Dela på strukturella gränser<br/>(md rubriker / PDF sidor / stycken)"]
     STRUCT --> SIZE{"Sektionsstorlek?"}
     SIZE -->|"För stor"| SPLIT["Dela vidare med overlap<br/>(starting point: ~300 token, 15%)"]
     SIZE -->|"Lagom"| KEEP["Behåll som EN chunk"]
