@@ -56,8 +56,8 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 
 ### Chunking (`src/kms/extraction/chunker.py`)
 - [ ] Strukturmedveten `chunking`: Dela på md-rubriker (`# / ##`), samma kod som för PDF.
-- [ ] Storlek + overlap konfigurerbart, startpunkt 200–600 token / 10–20% overlap (se `pdf_chunking_docs_mvp_v2.md`), inte hårdkodat, ska kunna fine-tunas empiriskt mot MVP v4s eval-harness senare vid behov.
-- [ ] `Minimum lenght`-filter - kastar bort sannolikt brus (isolerade sidfotsrester) innan embedding.
+- [/] Storlek + overlap konfigurerbart, startpunkt 200–600 token / 10–20% overlap (se `pdf_chunking_docs_mvp_v2.md`), inte hårdkodat, ska kunna fine-tunas empiriskt mot MVP v4s eval-harness senare vid behov.
+- [/] `Minimum lenght`-filter - kastar bort sannolikt brus (isolerade sidfotsrester) innan embedding.
 - [ ] Metadata per chunk -> `Chunk.source_location` (JSONB, finns redan i schemat): sida (PDF), rubrik/radintervall (markdown), tidsstämpel-intervall (transkript)
 
 

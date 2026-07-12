@@ -24,10 +24,10 @@
 *Goals for today:*
 
 - Continue working on `src/kms/extraction/pdf_extractor.py` script
-    - *semi-done*
+    - *semi-done?*
 
 - Add experimental PoC extraction script to test `pymupdf4llm`-deps to see if ORC works better
     - **Done**
 
 - Start working on `chunker.py` - Chunking script
-    - *ongoing*
+    - *semi-done?*
