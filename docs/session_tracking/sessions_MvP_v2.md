@@ -23,8 +23,14 @@
 **Sunday 2026-07-12**
 *Goals for today:*
 
-- Start working on extraction script for youtube transcripts.
+- Continue working on `src/kms/extraction/pdf_extractor.py` script
+    - *semi-done*
+
+- Add experimental PoC extraction script to test `pymupdf4llm`-deps to see if ORC works better
+    - **Done**
+
+- Start working on `chunker.py` - Chunking script
     - *ongoing*
 
-- Continue working on `src/kms/extraction/pdf_extractor.py` script
+- Write docs regarding Chunking theory and script
     - *ongoing*
