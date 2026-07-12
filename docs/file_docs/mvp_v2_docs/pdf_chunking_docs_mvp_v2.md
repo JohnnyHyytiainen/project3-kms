@@ -64,3 +64,28 @@ flowchart TD
     KEEP --> META
     META --> PARQUET[("Parquet - Silver<br/>Klar för MVP v3 embeddings")]
 ```
+
+### Chunking logik fast för dokument
+```mermaid
+---
+config:
+  theme: neo-dark
+---
+flowchart TD
+    MD["Native .md filer<br/>+ de 6 pymupdf4llm-filerna"] --> HEAD["Dela upp på rubriker<br/># / ##"]
+    PDF["Övriga PDFer<br/>default get_text - inga rubriker"] --> PAGE["Dela på sidor<br/>ExtractedPage har redan page_number"]
+
+    HEAD --> GENERIC["chunker.py - källagnostisk kärna<br/>samma logik oavsett ursprung"]
+    PAGE --> GENERIC
+
+    GENERIC --> SIZE{"Sektion för stor?"}
+    SIZE -->|Ja| SPLIT["Dela med overlap<br/>~300 token, 15%"]
+    SIZE -->|Lagom| KEEP["Behåll som en chunk"]
+    SIZE -->|"För liten"| MINLEN{"Under min-längd?"}
+    MINLEN -->|Ja| DROP["Kasta - sannolikt brus"]
+    MINLEN -->|Nej| KEEP
+
+    SPLIT --> OUT["TextChunk-dataclass<br/>content, position, source_location, char_count"]
+    KEEP --> OUT
+    OUT --> LATER["extract.py senare:<br/>TextChunk -> riktig Chunk-rad + document_id"]
+```
