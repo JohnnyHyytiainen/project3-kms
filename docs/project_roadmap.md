@@ -47,9 +47,9 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 *Tag: `v2.0`. Pågående, Silver - HÖGSTA risken i hela projektet, bör göras tidigt*
 
 ### Extraction (`src/kms/extraction/`)
-- [ ] `pdf_extractor.py` - PDF -> Ren text. Landa på rätt nivå. `get_text("text")` -> `sort=True` -> `get_text("dict")` -> `pymupdf4llm.to_markdown()`. Se `docs/file_docs/mvp_v2_docs/pdf_extraction_docs_mvp_v2.md` för förklaring.
-- [ ] Sidhuvud/sidfot-filtrering - "Fälla nr 3", KRITISKT *innan* chunking sker.
-- [ ] Tabellhantering - "Fälla nr 2", `page.find_tables()` eller `pymupdf4llm`.
+- [/] `pdf_extractor.py` - PDF -> Ren text. Landa på rätt nivå. `get_text("text")` -> `sort=True` -> `get_text("dict")` -> `pymupdf4llm.to_markdown()`. Se `docs/file_docs/mvp_v2_docs/pdf_extraction_docs_mvp_v2.md` för förklaring.
+- [/] Sidhuvud/sidfot-filtrering - "Fälla nr 3", KRITISKT *innan* chunking sker.
+- [/] Tabellhantering - "Fälla nr 2", `page.find_tables()` eller `pymupdf4llm`.
 - [ ] `transcript_parser.py` - `youtube_transcripts`-grenen hanteras separat från vanliga `.md`-kursdokument (samma `source_type`, olika struktur, avgörs via `s3_key-prefix`/`course_tag` och inte `source_type` ensamt). Behåller `[HH:MM:SS]`-tidsstämplar som `chunk-metadata` (bekräftat finns i materialet).
 - [ ] Vanliga `.md`-kursdokument, enklaste extraktionsfallet, redan strukturerad text
 
