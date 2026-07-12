@@ -17,3 +17,14 @@
 
 - Branch out and start writing `src/kms/extraction/pdf_extractor.py` script
     - *semi-done*
+
+---
+
+**Sunday 2026-07-12**
+*Goals for today:*
+
+- Start working on extraction script for youtube transcripts.
+    - *ongoing*
+
+- Continue working on `src/kms/extraction/pdf_extractor.py` script
+    - *ongoing*
