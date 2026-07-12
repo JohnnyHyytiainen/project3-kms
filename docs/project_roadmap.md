@@ -52,6 +52,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - [/] Tabellhantering - "Fälla nr 2", `page.find_tables()` eller `pymupdf4llm`.
 - [ ] `transcript_parser.py` - `youtube_transcripts`-grenen hanteras separat från vanliga `.md`-kursdokument (samma `source_type`, olika struktur, avgörs via `s3_key-prefix`/`course_tag` och inte `source_type` ensamt). Behåller `[HH:MM:SS]`-tidsstämplar som `chunk-metadata` (bekräftat finns i materialet).
 - [ ] Vanliga `.md`-kursdokument, enklaste extraktionsfallet, redan strukturerad text
+- [ ] Script för att hämta hem korrekt transcript ifrån rätt video hittad i varje .md docs.
 
 ### Chunking (`src/kms/extraction/chunker.py`)
 - [ ] Strukturmedveten `chunking`: Dela på md-rubriker (`# / ##`), samma kod som för PDF.

@@ -31,6 +31,3 @@
 
 - Start working on `chunker.py` - Chunking script
     - *ongoing*
-
-- Write docs regarding Chunking theory and script
-    - *ongoing*
