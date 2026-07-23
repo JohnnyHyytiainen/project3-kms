@@ -31,3 +31,14 @@
 
 - Start working on `chunker.py` - Chunking script
     - *semi-done?*
+
+---
+
+**Thursday 2026-07-23**
+*Goals for today:*
+
+- Document discovered infinity loop in `chunker.py` + decide tail for chunking logic
+    - *ongoing*
+
+- Implement `chunker.py` infinite bug fix in script
+    - *ongoing*
