@@ -14,6 +14,14 @@ OVERLAP_SIZE = 300  # 20% av TARGET_CHUNK
 MIN_CHUNK_SIZE = 50  # Tröskelvärde, under 50 och säkert bara 'brus'
 
 
+STEP_SIZE = TARGET_CHUNK_SIZE - OVERLAP_SIZE
+# pre conditions - Utan dom här håller varkent variant eller invariant
+assert STEP_SIZE > 0, "OVERLAP_SIZE must be less than TARGET_CHUNK_SIZE"
+assert MIN_CHUNK_SIZE <= OVERLAP_SIZE, (
+    "otherwise, tail fragments may/will be lost without coverage"
+)
+
+
 # ===== 1: DATACLASS =====
 @dataclass
 class TextChunk:
@@ -56,11 +64,14 @@ def chunk_section(
                 char_count=len(text),
             )
         ]
+
     chunks = []
     position = 0
     index = start_index
-    while position < len(text):
-        end = position + TARGET_CHUNK_SIZE
+    text_len = len(text)
+
+    while position < text_len:
+        end = min(position + TARGET_CHUNK_SIZE, text_len)
         piece = text[position:end].strip()
 
         if len(piece) >= MIN_CHUNK_SIZE:
@@ -74,7 +85,10 @@ def chunk_section(
             )
             index += 1
 
-            # Overlap skapas här. Target_chunk_size - overlap_size
-            position += TARGET_CHUNK_SIZE - OVERLAP_SIZE
+        # OVILLKORLIG, Varje varv MÅSTE flytta fram position.
+        position += STEP_SIZE
+        # Overlap skapas här. Target_chunk_size - overlap_size
+        if text_len - position <= OVERLAP_SIZE:
+            break
 
     return chunks
