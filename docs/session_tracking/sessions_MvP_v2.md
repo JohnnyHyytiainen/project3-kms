@@ -45,3 +45,12 @@
 
 - Write tests for testing logic regarding `chunker.py` script
     **Done**
+
+---
+**Thursday 2026-07-23**
+*Goals for today:*
+- Start writing own docs regarding `chunk_section()`-function for better understanding
+    - *ongoing*
+
+- Implement understanding of `chunk_section()` into real code.
+    - *ongoing*
