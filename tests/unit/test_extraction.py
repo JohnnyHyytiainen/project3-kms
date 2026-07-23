@@ -17,9 +17,17 @@
 # Del 3: Duplicate chunk + tail overlap tester.
 # A3: Testar DUPLICATE CHUNK + TAIL OVERLAP logik
 #
+# Del 4: Tester för chunk_document() logik.
+# A4: Verifierar att en section mitt i dokument som är för kort eller tomt ignoreras utan att avbryta loopen,
+# och att `chunk_index` fortsätter att öka från rätt nummer.
+# B4: Testar att next_index räknas sekventiellt när tidigare section delats upp i flera chunks.
+# C4: Verifierar att tom section returnerar ett tomt index
+#
 import pytest
 
-from kms.extraction.chunker import MIN_CHUNK_SIZE, TARGET_CHUNK_SIZE, chunk_section
+from kms.extraction.chunker import MIN_CHUNK_SIZE, TARGET_CHUNK_SIZE
+from kms.extraction.chunker import chunk_section, chunk_document
+from kms.extraction.chunker import Section
 
 
 #
@@ -123,3 +131,75 @@ def test_no_chunk_is_a_pure_subset_of_neighbor(n):
     result = chunk_section(text, {"page": 1})
     for i in range(len(result) - 1):
         assert result[i + 1].content not in result[i].content
+
+
+# ====== Del 4: Test av chunk_document() logik ======
+# ===================================================
+# A4
+def test_chunk_document_blank_section_mid_document():
+    """
+    Test A4: Verifies that a section in the middle of the document
+    that is too short or empty is ignored without breaking the loop,
+    and that `chunk_index` continues incrementing from the correct number.
+    """
+    sections = [
+        Section(text="a" * 1500, source_location={"page": 1}),
+        Section(
+            text="     ",
+            source_location={"page": 2},  # TOM SEKTION (< MIN_CHUNK_SIZE)
+        ),
+        Section(text="B" * 1500, source_location={"page": 3}),
+    ]
+
+    result = chunk_document(sections)
+
+    # Ska endast generera 2 chunks totalt, page 1 + 3
+    assert len(result) == 2
+
+    # verifiering av första chunken på page 1
+    assert result[0].content == "a" * 1500
+    assert result[0].chunk_index == 0
+    assert result[0].source_location == {"page": 1}
+
+    # verifiering av andra chunken på page 3
+    # Index ska vara 1(indexing börjar från 0 as always)
+    assert result[1].content == "B" * 1500
+    assert result[1].chunk_index == 1
+    assert result[1].source_location == {"page": 3}
+
+
+# B4
+def test_chunk_document_maintains_sequential_index_across_sections():
+    """
+    Test B4: Tests and verifies that next_index is counted up sequentially when
+    when a previous section has been forced to split into multiple chunks.
+    """
+    sections = [
+        Section(
+            text="a" * 2000,
+            source_location={"page": 1},  # 2000 --> 2 chunks pga TARGET_CHUNK_SIZE
+        ),
+        Section(
+            text="b" * 1500,
+            source_location={"page": 2},  # 1500 --> 1 chunk pga TARGET_CHUNK_SIZE
+        ),
+    ]
+    result = chunk_document(sections)
+
+    # Förväntat, 3 sections, a = 2 chunks, b = 1 chunk == 3 chunks totalt
+    assert len(result) == 3
+    # Chunk_index ska vara 0 + 1 för page 1 och 2 för page 2
+    assert [chunk.chunk_index for chunk in result] == [0, 1, 2]
+
+    # Verifiering att metadata + text följer med korrekt på sista chunken
+    assert result[2].content == "b" * 1500
+    assert result[2].source_location == {"page": 2}
+
+
+# C4
+def test_chunk_document_empty_input_returns_empty_list():
+    """
+    Verifies trivial termination with an empty list of sections.
+    """
+    result = chunk_document([])
+    assert result == []
