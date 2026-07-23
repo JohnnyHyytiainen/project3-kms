@@ -50,7 +50,11 @@
 **Thursday 2026-07-23**
 *Goals for today:*
 - Start writing own docs regarding `chunk_section()`-function for better understanding
-    - *ongoing*
+    - **Done**
 
 - Implement understanding of `chunk_section()` into real code.
-    - *ongoing*
+    - **Done**
+
+- Add more unit tests for chunking and indexing logic in `test_extraction.py`-script.
+    - **Done, 13/13 tests passed**
+
