@@ -38,7 +38,10 @@
 *Goals for today:*
 
 - Document discovered infinity loop in `chunker.py` + decide tail for chunking logic
-    - *ongoing*
+    - **Done**
 
-- Implement `chunker.py` infinite bug fix in script
-    - *ongoing*
+- Implement `chunker.py` infinite bug fix + overlapping tail bug
+    - **Done**
+
+- Write tests for testing logic regarding `chunker.py` script
+    **Done**
