@@ -69,9 +69,11 @@ def write_chunks_to_parquet(
 
     s3_key arrives built fully. Function NEVER constructs,
     paths from course_tags OR filenames.
-    Same HOW and not WHY logic as s3_client.py.
+    Same HOW and not WHAT logic as s3_client.py.
 
-    Local file is a tempfile, cleaned up automatically. No file on disk is created.
+    Local file is a tempfile, cleaned up automatically.
+
+    No permanent file on disk is created.
     """
     table = _build_chunk_table(chunks, document_id)
 
