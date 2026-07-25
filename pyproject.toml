@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.18.5",
     "boto3>=1.43.40",
     "psycopg[binary]>=3.3.4",
+    "pyarrow>=25.0.0",
     "pydantic-settings>=2.14.2",
     "pymupdf>=1.28.0",
     "pymupdf4llm>=1.28.0",
