@@ -58,3 +58,16 @@
 - Add more unit tests for chunking and indexing logic in `test_extraction.py`-script.
     - **Done, 13/13 tests passed**
 
+---
+
+**Saturday 2026-07-25**
+*Goals for today:*
+
+- Add new dependency - `PyArrow` to use for my `parquet_writer.py` script thats supposed to be called on by `extract.py` script.
+    - *ongoing*
+
+- Add brief overview docs regarding `PyArrow` + parquet writing script.
+    - *ongoing*
+
+- Write `src/kms/storage/parquet_writer.py` script and test it.
+    - *ongoing*
