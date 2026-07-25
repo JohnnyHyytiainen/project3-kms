@@ -64,10 +64,10 @@
 *Goals for today:*
 
 - Add new dependency - `PyArrow` to use for my `parquet_writer.py` script thats supposed to be called on by `extract.py` script.
-    - *ongoing*
+    - **Done**
 
 - Add brief overview docs regarding `PyArrow` + parquet writing script.
-    - *ongoing*
+    - **Done**
 
 - Write `src/kms/storage/parquet_writer.py` script and test it.
-    - *ongoing*
+    - *Semi-done* Testing is still required.
