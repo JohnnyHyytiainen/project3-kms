@@ -71,3 +71,14 @@
 
 - Write `src/kms/storage/parquet_writer.py` script and test it.
     - *Semi-done* Testing is still required.
+
+---
+
+**Saturday 2026-08-08**
+*Goals for today:*
+
+- Test script `parquet_writer.py` from last session
+    - *ongoing*
+
+- Start to implement `extract.py`-script
+    - *ongoing*
