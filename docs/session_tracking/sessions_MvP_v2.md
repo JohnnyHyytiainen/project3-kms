@@ -78,7 +78,12 @@
 *Goals for today:*
 
 - Test script `parquet_writer.py` from last session
-    - *ongoing*
+    - **Done**
+
+- Implement new testing script for storage logic (11 tests, `tests/unit/test_storage.py`)
+    - **Done**
+
+---
 
 - Start to implement `extract.py`-script
     - *ongoing*
