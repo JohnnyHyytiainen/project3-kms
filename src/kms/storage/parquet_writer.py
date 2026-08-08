@@ -18,17 +18,21 @@ from kms.storage.s3_client import upload_file
 
 
 # Bestämmer EGET explicit schema. PyArrow ska inte få välja åt mig.
-# source_location är extremt viktig, den ska vara en fri dict.
+# source_location KRITISK, den ska vara en fri dict.
 # Serialiseras till JSON sträng för att säkerställa stabil columntype oavsett form på dict.
+#
+# nullable=False på alla fält avsiktligt. PyArrow tillåter null som standard.
+# Realfallet: document.id är None i SQLAlchemy innan flush()/commit()
+# Utan den här spärren skrivs en giltig fil med oattribuerbara rader, helt tyst.
 
 # PyArrow Schema:
 PARQUET_SCHEMA = pa.schema(
     [
-        pa.field("document_id", pa.int64()),
-        pa.field("chunk_index", pa.int64()),
-        pa.field("content", pa.string()),
-        pa.field("source_location", pa.string()),
-        pa.field("char_count", pa.int64()),
+        pa.field("document_id", pa.int64(), nullable=False),
+        pa.field("chunk_index", pa.int64(), nullable=False),
+        pa.field("content", pa.string(), nullable=False),
+        pa.field("source_location", pa.string(), nullable=False),
+        pa.field("char_count", pa.int64(), nullable=False),
     ]
 )
 
