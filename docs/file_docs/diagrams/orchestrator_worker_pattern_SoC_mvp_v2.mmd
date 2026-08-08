@@ -1,0 +1,28 @@
+---
+config:
+  theme: neo-dark
+---
+flowchart TB
+    %% --- INFORMATIONSBUBBLA ---
+    INFO["<b>Skillnaden på HUR och VAD moduler</b><br/><br/><b>VAD moduler(Smart)</b> är smarta, domänspecifika och orkestrerar någonting.<br/>De vet i vilken ordning saker ska göras och VARFÖR.<br/><br/><b>HUR moduler(Dum)</b> är dumma och generella och återanvändningsbara,<br/>de tar emot något och gör en sak.<br/><br/><i>Liknelse: OOP-klasser är designade för när DATA behöver kommas<br/>ihåg medan funktioner enbart utför någonting och sedan glömmer det.</i>"]
+
+    subgraph WHAT["VAD lagret(Smarta lagret) - domänkunskap, orkestrering"]
+        EX["extract.py  [NÄSTA MODUL]<br/>Vet: detta Document, dess bronze-nyckel,<br/>hur silver-nyckeln härleds,<br/>i vilken ordning stegen körs"]
+    end
+
+    subgraph HOW["HUR lagret(Dumma lagret) - mekanik, dumt och återanvändbart"]
+        PDF["pdf_extractor.py<br/>HUR man får ut text ur en PDF<br/>Vet inte ens vad ett dokument är i domänen"]
+        CH["chunker.py<br/>HUR man delar text i bitar<br/>Vet inte ens att PDF finns"]
+        PW["parquet_writer.py<br/>HUR man serialiserar till Parquet<br/>Vet inte ens hur en s3_key byggs<br/>Vet inte ens om att ORM-modellen Document finns"]
+        S3["s3_client.py<br/>HUR man laddar upp till en bucket<br/>Vet inte ens vad course_tag är"]
+    end
+
+    %% Osynlig länk som placerar INFO-bubblan bredvid flowcharten i layouten
+    INFO ~~~ WHAT
+
+    EX -->|"filväg"| PDF
+    PDF -->|"list ExtractedPage"| EX
+    EX -->|"list Section"| CH
+    CH -->|"list TextChunk"| EX
+    EX -->|"chunks + document_id + färdig s3_key"| PW
+    PW -->|"lokal filväg + bucket + nyckel"| S3
