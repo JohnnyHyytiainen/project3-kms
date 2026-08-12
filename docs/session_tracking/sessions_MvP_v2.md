@@ -88,6 +88,11 @@
 **Wednesday 2026-08-12**
 *Goals for today:*
 
+- Update repo with self written documentation regarding extraction logic
+    - *ongoing*
 
+- Add flowchart regarding extraction logic
+    - *ongoing*
+    
 - Start to implement `extract.py`-script
     - *ongoing*
