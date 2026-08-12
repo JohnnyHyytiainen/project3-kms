@@ -85,5 +85,9 @@
 
 ---
 
+**Wednesday 2026-08-12**
+*Goals for today:*
+
+
 - Start to implement `extract.py`-script
     - *ongoing*
