@@ -1,0 +1,73 @@
+---
+title: extract.py, orchestration, felvägar och transaction gränser 
+config:
+  theme: neo-dark
+---
+flowchart TD
+ 
+    %% ============================================================
+    %% run_extraction() - uppsättning, loop, summering.
+    %% Samma form som run_ingestion() scriptet: en funktion som bara kopplar upp och itererar
+    %% Det är den som blir en Airflow task i MVP v5 sen.
+    %% ============================================================
+ 
+    START(["run_extraction()"]) --> SETUP["create_engine - get_s3_client - ensure_bucket_exists"]
+    SETUP --> QUERY["SELECT documents WHERE status = PENDING AND source_type i SECTION_BUILDERS"]
+    QUERY --> LOOP{"Finns fler dokument i resultatet?"}
+    LOOP -- "nej" --> SUMMARY["Summering: extracted / failed / skipped"]
+    SUMMARY --> DONE(["Slut"])
+ 
+    %% ============================================================
+    %% extract_one_document(), ett dokument, ett utfall.
+    %% document.id finns redan: raden kommer från en SELECT, inte från session.add
+    %% Flush problemet från tidigare bör inte visa sig här.
+    %% ============================================================
+ 
+    LOOP -- "ja" --> TMP["tempfile.TemporaryDirectory, städas även vid undantag"]
+    TMP --> DL["download_file: S3 bronze till lokal temp-fil"]
+ 
+    DL -- "ClientError 404 / korrupt nyckel" --> FAILDOC["status = FAILED + error_message, raden är fakta om DOKUMENTET"]
+    DL -- "ClientError: endpoint nere" --> SKIP["Rör INTE status - raden förblir PENDING - nästa körning försöker igen"]
+    DL -- "ok" --> BUILD["SECTION_BUILDERS uppslag på source_type ger list of Section"]
+ 
+    BUILD -- "fitz.FileDataError: trasig PDF" --> FAILDOC
+    BUILD -- "KeyError: okänd source_type" --> CRASH["Krascha hela körningen - premissen är fel, inte raden(FAIL LOUD)"]
+    BUILD -- "ok" --> CHUNK["chunk_document ger list of TextChunk"]
+ 
+    CHUNK --> EMPTY{"Tom chunk-lista?"}
+    EMPTY -- "ja" --> MEASURE["status = FAILED + error_message noll chunks - MÄTPUNKT för tom chunk"]
+    EMPTY -- "nej" --> PARQUET["write_chunks_to_parquet till silver-prefix - nyckeln från `Document.s3_key`"]
+ 
+    %% ============================================================
+    %% Transaktionsgränsen. S3-skrivningen är idempotent eftersom nyckeln är deterministisk (Document.s3_key)
+    %% därför är ordningen: S3 FÖRST, Postgres SIST
+    %% ============================================================
+ 
+    PARQUET -- "ClientError vid upload" --> SKIP
+    PARQUET -- "ok" --> ROWS["session.add_all av Chunk rader,  status = EXTRACTED"]
+    ROWS --> COMMIT["session.commit - ENDA punkten där dokumentet blir klart"]
+ 
+    COMMIT -- "IntegrityError" --> ROLLBACK["rollback, den föräldralösa parquetfilen skrivs över nästa körning"]
+    ROLLBACK --> SKIP
+ 
+    COMMIT --> NEXT["Nästa dokument"]
+    MEASURE --> NEXT
+    FAILDOC --> NEXT
+    SKIP --> NEXT
+    NEXT --> LOOP
+ 
+    %% ============================================================
+    %% Poängen med färgerna är för att visa att FAILED och SKIPPED är två helt olika saker.
+    %% FAILED är ett påstående OM dokumentet.
+    %% SKIPPED är ett påstående OM infrastrukturen.
+    %% ============================================================
+ 
+    classDef ok fill:#1f6f43,stroke:#0d3d24,color:#ffffff
+    classDef doc fill:#8a5a00,stroke:#4d3200,color:#ffffff
+    classDef infra fill:#1f4e79,stroke:#0d2740,color:#ffffff
+    classDef fatal fill:#8b1a1a,stroke:#4d0f0f,color:#ffffff
+ 
+    class COMMIT,PARQUET,ROWS ok
+    class FAILDOC,MEASURE doc
+    class SKIP,ROLLBACK infra
+    class CRASH fatal
