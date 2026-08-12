@@ -12,7 +12,19 @@ from pathlib import Path
 import fitz  # PyMuPDF
 
 
-# ===== 1: DATACLASS =====
+# ========== 1: DATACLASS för eget fel ==========
+# Ger eget namn på felet för 'den här PDFen gick inte att läsa'
+class PdfExtractionError(Exception):
+    """
+    Own coded Exception. Gets raised when a specific PDF cannot be read.
+
+    Exists only so that nothing above this file has to import fitz to catch a broken file,
+    module that owns the library should also own its errors name. PyMuPDF should not leak
+    into every layer above this one. Swapping library later whould mean editing every class.
+    """
+
+
+# ===== 2: DATACLASS för ExtractedPage base class =====
 # Strikt behållare för en sidas extraherade innehåll
 # Decorator
 @dataclass
@@ -29,7 +41,7 @@ class ExtractedPage:
     text: str
 
 
-# ===== 2: EXTRACTION FUNKTION =====
+# ===== 3: EXTRACTION FUNKTION =====
 # Funktion som öppnar och läser PDF, sida för sida.
 def extract_pages(pdf_path: Path) -> list[ExtractedPage]:
     """
