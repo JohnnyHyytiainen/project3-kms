@@ -67,3 +67,20 @@ def upload_file(client, local_path: str, bucket_name: str, key: str) -> None:
     memory, which becomes a problem as the collection of PDFs and transcripts grows.
     """
     client.upload_file(local_path, bucket_name, key)
+
+
+# Funktion för att ladda ner filer ut min S3-Bucket till disk LOKALT
+def download_file(client, bucket_name: str, key: str, local_path: str) -> None:
+    """
+    Function made to download ONE object from S3-bucket to local file path.
+    Mirror image of upload_file function on purpose. It does the same thing but
+    in reverse. Source first, destination last.
+
+    Download_file instead of get_object, same reason upload_file was chosen over using
+    put_object: Boto3 STREAMS IT, a large PDF never has to sit in RAM in one piece.
+
+    Caller decides where the file lands and is responsible for cleaning it up.
+
+    Module knows how to talk with S3 and NOTHING ELSE.
+    """
+    client.download_file(bucket_name, key, local_path)
