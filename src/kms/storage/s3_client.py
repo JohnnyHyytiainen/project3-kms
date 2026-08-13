@@ -84,3 +84,24 @@ def download_file(client, bucket_name: str, key: str, local_path: str) -> None:
     Module knows how to talk with S3 and NOTHING ELSE.
     """
     client.download_file(bucket_name, key, local_path)
+
+
+# Funktion för att säkerställa och KRÄVA att min S3-Bucket finns istället för att endast skapa den
+def require_bucket_exists(client, bucket_name: str) -> None:
+    """
+    Stops the run if the S3 bucket is missing. Function never creates it.
+
+    Sibling function to ensure_bucket_exists.
+
+    ensure_bucket_exists() = 'create bucket if its not there'.
+
+    require_bucket_exists() = 'Stop if its not there'.
+    """
+    try:
+        client.head_bucket(Bucket=bucket_name)
+    except ClientError as e:
+        raise RuntimeError(
+            f"BUCKET '{bucket_name}' NOT READABLE: {e}. "
+            f"The bronze layer is missing or LocalStack has been restarted. "
+            f"Run ingestion before extraction, do NOT create the bucket here."
+        ) from None

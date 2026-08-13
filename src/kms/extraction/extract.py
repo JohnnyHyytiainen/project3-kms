@@ -23,7 +23,7 @@ from kms.db.models import Chunk, Document, DocumentStatus
 from kms.extraction.chunker import Section, chunk_document
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.storage.parquet_writer import write_chunks_to_parquet
-from kms.storage.s3_client import download_file, ensure_bucket_exists, get_s3_client
+from kms.storage.s3_client import download_file, require_bucket_exists, get_s3_client
 
 
 # --- 1: Extraherings outcome ---
@@ -204,7 +204,7 @@ def run_extraction() -> None:
     s3_client = get_s3_client()
     # FAILA HÖGT om LocalStack är dött. S3 Bucket finns redan efter ingestion är körd,
     # men anropet är gratis och gör det här skriptet körbart på egen hand och standalone.
-    ensure_bucket_exists(s3_client, settings.S3_BUCKET_NAME)
+    require_bucket_exists(s3_client, settings.S3_BUCKET_NAME)
 
     counts = {outcome: 0 for outcome in ExtractionOutcome}
 
