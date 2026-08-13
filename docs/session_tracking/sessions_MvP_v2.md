@@ -88,11 +88,20 @@
 **Wednesday 2026-08-12**
 *Goals for today:*
 
-- Update repo with self written documentation regarding extraction logic
-    - *ongoing*
 
 - Add flowchart regarding extraction logic
-    - *ongoing*
+    - **Done**
     
 - Start to implement `extract.py`-script
-    - *ongoing*
+    - **Done**
+
+---
+
+**Thursday 2026-08-13**
+*Goals for today:*
+
+- Update s3_client.py script to include function to require bucket to exist
+    - **Done**
+
+- update extractp.y script to include import of required bucket fuction from s3_client.py script
+    - **Done**
