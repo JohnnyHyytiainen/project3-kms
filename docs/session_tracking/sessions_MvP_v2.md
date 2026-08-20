@@ -111,4 +111,12 @@
 **Thursday 2026-08-20**
 *Goals for today:*
 
--
+- Fix discovered bug in extraction logic - Side number never gets read, correct python syntax but datatype is completely wrong
+    - *ongoing*
+    - Bug is caused by something that went un-noticed in row `58` in `extract.py`-script.
+    > {"page: page.page_number"}     # set --> TypeError, will crash directly.  
+    > {"page": "page.page_number"}   # dict --> Completely valid, value is total garbage.
+
+    - Where it will cause issues and problems is in `parquet_writer.py`-script on row 56.
+    > "source_location": [json.dumps(c.source_location) for c in chunks]. json.dumps can handle dicts, list, str, float, bool and None. A set doesnt exist in JSON and will lead to TypeError: Object of type set is not JSON serializable
+    
