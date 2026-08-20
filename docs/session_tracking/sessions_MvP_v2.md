@@ -105,3 +105,10 @@
 
 - update extractp.y script to include import of required bucket fuction from s3_client.py script
     - **Done**
+
+---
+
+**Thursday 2026-08-20**
+*Goals for today:*
+
+-
