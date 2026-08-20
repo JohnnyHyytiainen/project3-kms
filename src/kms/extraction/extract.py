@@ -23,7 +23,7 @@ from kms.db.models import Chunk, Document, DocumentStatus
 from kms.extraction.chunker import Section, chunk_document
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.storage.parquet_writer import write_chunks_to_parquet
-from kms.storage.s3_client import download_file, require_bucket_exists, get_s3_client
+from kms.storage.s3_client import download_file, get_s3_client, require_bucket_exists
 
 
 # --- 1: Extraherings outcome ---
@@ -32,7 +32,7 @@ class ExtractionOutcome(str, enum.Enum):
     """
     Result of processing ONE document in ONE run.
 
-    Not the same hting as DocumentStatus by design.
+    Not the same thing as DocumentStatus by design.
     SKIPPED is not a state a document can be in, a skipped document
     is still pending and unprocessed.
 
@@ -55,7 +55,7 @@ def build_sections_from_pdfs(local_path: Path) -> list[Section]:
     """
     pages = extract_pages(local_path)
     return [
-        Section(text=page.text, source_location={"page: page.page_number"})
+        Section(text=page.text, source_location={"page": page.page_number})
         for page in pages
     ]
 
