@@ -130,7 +130,7 @@ Mål: En komplett Bronze layer pipeline i Docker - kursrepon in i S3
 - CD till SSH-VM(?), byggd på lärdomar från den separata deployment dry-run
 
 - Reverse proxy + TLS, secrets-hantering, grundläggande monitoring
-
+```
 ## Risker
 
 | Risk | Status | Kommentar |
