@@ -126,3 +126,8 @@
 **Friday 2026-09-04**
 *Goals for today:*
 
+- Work on my ccurrent **Error classification issue**, this is done by writing / refactoring code in:
+    - `models.py`
+    - an alembic revision(migration) with `alembic revision --autogenerate -m "add failure_reason to documents`
+    - `extract.py`
+    
