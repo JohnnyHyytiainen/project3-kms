@@ -19,7 +19,7 @@ from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from kms.config import settings
-from kms.db.models import Chunk, Document, DocumentStatus
+from kms.db.models import Chunk, Document, DocumentStatus, FailureReason
 from kms.extraction.chunker import Section, chunk_document
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.storage.parquet_writer import write_chunks_to_parquet
@@ -72,10 +72,15 @@ SECTION_BUILDERS: dict[str, Callable[[Path], list[Section]]] = {
 # --- 3: Helper funktion för dokument som misslyckas ---
 # privat funktion FAAFO
 def _mark_failed(
-    session: Session, document: Document, message: str
+    session: Session,
+    document: Document,
+    reason: FailureReason,
+    message: str,
 ) -> ExtractionOutcome:
     """
-    Marks a document as unusable, and documents why.
+    Marks a document as unusable, and documents why - twice, on purpose.
+
+    Reason is machine readable and is what a targeted backfill queries on.
 
     Commit here instead of later in the run.
     A later commit during run leads to a later crash and information
@@ -85,9 +90,10 @@ def _mark_failed(
     capped and truncated to 1000 chars.
     """
     document.status = DocumentStatus.FAILED
+    document.failure_reason = reason
     document.error_message = message[:1000]
     session.commit()
-    print(f"[FAILED] {document.s3_key}: {message}")
+    print(f"[FAILED:{reason.name}] {document.s3_key}: {message}")
     return ExtractionOutcome.FAILED
 
 
@@ -121,7 +127,10 @@ def extract_one_document(
             if error_code in ("404", "NoSuchKey"):
                 # Objektet saknas i S3 bucket. Det är fakta om själva DOKUMENTET (se extraction_logic_flowchart_mvp_v2)
                 return _mark_failed(
-                    session, document, f"S3 object missing: {document.s3_key}"
+                    session,
+                    document,
+                    FailureReason.SOURCE_MISSING,
+                    f"S3 object missing: {document.s3_key}",
                 )
             # Alla andra issues är fakta om INFRASTRUKTUREN i sig (se extraction_logic_flowchart_mvp_v2)
             # Att sätta FAILED här hade varit missvisande då det är infrastrukturen och inte dokumentet det handlar om.
@@ -134,17 +143,36 @@ def extract_one_document(
             sections = builder(local_path)
         except PdfExtractionError as e:
             # Filen kan inte läsas. Fakta om DOKUMENTET (se extraction_logic_flowchart_mvp_v2)
-            return _mark_failed(session, document, f"extraction failed: {e}")
+            return _mark_failed(
+                session,
+                document,
+                FailureReason.UNREADABLE_SOURCE,
+                f"extraction failed: {e}",
+            )
 
         chunks = chunk_document(sections)
 
-        # --- Mätpunkt ---
-        # Ett dokument utan chunks är inte extraherat. Krasch ska inte ske riktigt ännu:
-        # Först måste jag veta hur MÅNGA av de 134st PDF'er som hamnar här.
-        # Anledning: För att göra antalet möjligt att göra SQL queries mot.
+        # --- Mätpunkt: två skilda verkligheter bakom samma tomma lista ---
+        # Noll chunks kan betyda två helt olika saker, och dom blir lösta av olika arbeten:
+        # NOLL tecken text -> innehållet ÄR bild och innebär att bara OCR hjälper mig,
+        # text finns, men varje sektion är UNDER MIN_CHUNK_SIZE -> en tröskelfråga.
+        # Skillnaden mäts här, en gång, istället för att gissa i efterhand.
+        # Teckenantalet följer med i meddelandet så att marginalen syns som output.
         if not chunks:
+            extracted_chars = sum(len(section.text.strip()) for section in sections)
+            if extracted_chars == 0:
+                return _mark_failed(
+                    session,
+                    document,
+                    FailureReason.NO_TEXT_EXTRACTED,
+                    "0 chunks: no text extracted, content is most LIKELY image-based",
+                )
             return _mark_failed(
-                session, document, "0 chunks: all sections below MIN_CHUNK_SIZE"
+                session,
+                document,
+                FailureReason.TEXT_BELOW_THRESHOLD,
+                f"0 chunks: {extracted_chars} chars extracted, "
+                f"all sections below MIN_CHUNK_SIZE",
             )
 
         # --- Sidoeffekt 1/2: skriv Parquet till S3 ---
@@ -186,6 +214,7 @@ def extract_one_document(
         )
         document.status = DocumentStatus.EXTRACTED
         document.error_message = None
+        document.failure_reason = None
         session.commit()
 
     return ExtractionOutcome.EXTRACTED
