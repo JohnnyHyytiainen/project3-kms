@@ -130,7 +130,7 @@
     - **Done**:  `models.py` - Add new enumeration class in + added new error_message variable to Document class   
 
 
-    - an alembic revision(migration) with `alembic revision --autogenerate -m "add failure_reason to documents`
+    - **Done**: an alembic revision(migration) with `alembic revision --autogenerate -m "add failure_reason to documents`
     
-    - `extract.py`
+    - **Done**: `extract.py`
     
