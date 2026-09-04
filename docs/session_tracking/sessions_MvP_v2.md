@@ -127,7 +127,10 @@
 *Goals for today:*
 
 - Work on my ccurrent **Error classification issue**, this is done by writing / refactoring code in:
-    - `models.py`
+    - **Done**:  `models.py` - Add new enumeration class in + added new error_message variable to Document class   
+
+
     - an alembic revision(migration) with `alembic revision --autogenerate -m "add failure_reason to documents`
+    
     - `extract.py`
     
