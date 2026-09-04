@@ -37,8 +37,8 @@ class FailureReason(str, enum.Enum):
     Named after WHAT is wrong and not after WHERE it was noticed by design:
     a value has to stay true even if the code that sets it moves to another module.
 
-    Every value maps to exactly one call site, A value without a call site is a guess,
-    and no one can later tell "nevet happens" apart from "the code that sets it was never written"
+    Every value maps to exactly one call site, a value without a call site is a guess,
+    and no one can later tell "never happens" apart from "the code that sets it was never written"
     """
 
     # Objektet finns inte i bucket, Postgres och S3 är INTE I SYNK.
@@ -56,7 +56,7 @@ class FailureReason(str, enum.Enum):
     NO_TEXT_EXTRACTED = "no_text_extracted"
 
     # Filen har givit text men varje section är UNDER minsta MIN_CHUNK_SIZE.
-    # Åtgärd: Tröskeln behöver bli med fine-tuned. Texten finns men den är bara kort.
+    # Åtgärd: Tröskeln behöver bli mer fine-tuned. Texten finns men den är bara kort.
     TEXT_BELOW_THRESHOLD = "text_below_threshold"
 
 
@@ -93,7 +93,7 @@ class Document(Base):
     # native_enum=False precis som status, dvs VARCHAR i postgres,
     # En ny orsak blir DÄRFÖR en kodändring och INTE en revision(migration).
     failure_reason: Mapped[FailureReason | None] = mapped_column(
-        SQLEnum(FailureReason, native_enum=False, lenght=35, validate_strings=True),
+        SQLEnum(FailureReason, native_enum=False, lenght=30, validate_strings=True),
         nullable=True,
     )
 
