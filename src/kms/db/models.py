@@ -78,7 +78,7 @@ class Document(Base):
     course_tag: Mapped[str] = mapped_column(String(50), index=True)
 
     status: Mapped[DocumentStatus] = mapped_column(
-        SQLEnum(DocumentStatus, native_enum=False, length=20, validate_strings=True),
+        SQLEnum(DocumentStatus, native_enum=False, lenght=20, validate_strings=True),
         default=DocumentStatus.PENDING,
     )
 
