@@ -27,6 +27,39 @@ class DocumentStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class FailureReason(str, enum.Enum):
+    """
+    Why a document did NOT make it through the extraction.
+
+    NULL on EVERY row that is NOT marked FAILED.
+    That column is only meaningful together with DocumentStatus.FAILED.
+
+    Named after WHAT is wrong and not after WHERE it was noticed by design:
+    a value has to stay true even if the code that sets it moves to another module.
+
+    Every value maps to exactly one call site, A value without a call site is a guess,
+    and no one can later tell "nevet happens" apart from "the code that sets it was never written"
+    """
+
+    # Objektet finns inte i bucket, Postgres och S3 är INTE I SYNK.
+    # Åtgärd är: En ny ingestion
+    SOURCE_MISSING = "source_missing"
+
+    # Filen finns men går ej att öppna eller tolka, dvs den är:
+    # Tom, Trasig eller Krypterad.
+    # Åtgärd: Källan måste lagas eller så behöver den ersättas!
+    UNREADABLE_SOURCE = "unreadable_source"
+
+    # Fil lästes men gav NOLL tecken(text). Innehållet är med största sannolikhet BILD
+    # och inte text.
+    # Åtgärd: OCR - Inget tröskelvärde i hela världen kommer att hjälpa här.
+    NO_TEXT_EXTRACTED = "no_text_extracted"
+
+    # Filen har givit text men varje section är UNDER minsta MIN_CHUNK_SIZE.
+    # Åtgärd: Tröskeln behöver bli med fine-tuned. Texten finns men den är bara kort.
+    TEXT_BELOW_THRESHOLD = "text_below_threshold"
+
+
 # SQLAlchemy baseclass för Document
 class Document(Base):
     __tablename__ = "documents"
@@ -53,6 +86,16 @@ class Document(Base):
     # Kan finnas i flera repon med olika s3_keys
     file_hash: Mapped[str] = mapped_column(String(64), index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Maskinläsbar orsak. error_message är en HEADS UP till människa,
+    # Kolumnen är den column som en riktad backfill kan fråga på.
+    # Nullable med flit - Kolumnen betyder ingenting för en row som inte är FAILED.
+    # native_enum=False precis som status, dvs VARCHAR i postgres,
+    # En ny orsak blir DÄRFÖR en kodändring och INTE en revision(migration).
+    failure_reason: Mapped[FailureReason | None] = mapped_column(
+        SQLEnum(FailureReason, native_enum=False, lenght=35, validate_strings=True),
+        nullable=True,
+    )
 
     # Server_default, inte python default. Postgres egen NOW()
     # Vald nu i mvp v1 för att underlätta när Airflow kör parallella tasks i v5
