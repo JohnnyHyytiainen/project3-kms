@@ -122,3 +122,7 @@
 
 - Truncate psql database + re-seed s3 bucket and meassure everything to see if current logic is correct.
     **Done**
+
+**Friday 2026-09-04**
+*Goals for today:*
+
