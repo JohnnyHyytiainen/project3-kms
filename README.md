@@ -77,17 +77,18 @@ flowchart LR
 `uv run python -m kms.ingestion.ingest`
 ​
 
-## 5. Attribution
+
 
 ## 5. Attribution
 
 Course material used in this project - PDFs, markdown, and video transcripts - comes from the STI Data Engineering program (DE25) and is used with written permission from course instructors:
 
+Courses developed and delivered via [AIgineerAB](https://github.com/AIgineerAB) (Debbie and Kokchun's company).
 - **Debbie Lau** - [github.com/Db-Lau](https://github.com/Db-Lau)
 - **Kokchun Giang** - [github.com/kokchun](https://github.com/kokchun)
-- **Kristoffer Johansson** - [github.com/Krillinator](https://github.com/Krillinator)
 
-Courses developed and delivered via [AIgineerAB](https://github.com/AIgineerAB) (Debbie and Kokchun's company).
+Contact information for [Kristoffer Johansson](https://inspiira.se/)
+- **Kristoffer Johansson** - [github.com/Krillinator](https://github.com/Krillinator)
 
 
 ## 6. License
