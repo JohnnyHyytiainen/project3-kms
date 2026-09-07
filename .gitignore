@@ -128,3 +128,6 @@ notebooks/
 
 # --- Repon for my DATA ---
 repos_for_data/
+
+# --- SESSION TRACKING ---
+docs/session_tracking/
