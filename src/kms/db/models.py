@@ -78,7 +78,7 @@ class Document(Base):
     course_tag: Mapped[str] = mapped_column(String(50), index=True)
 
     status: Mapped[DocumentStatus] = mapped_column(
-        SQLEnum(DocumentStatus, native_enum=False, lenght=20, validate_strings=True),
+        SQLEnum(DocumentStatus, native_enum=False, length=20, validate_strings=True),
         default=DocumentStatus.PENDING,
     )
 
@@ -93,7 +93,7 @@ class Document(Base):
     # native_enum=False precis som status, dvs VARCHAR i postgres,
     # En ny orsak blir DÄRFÖR en kodändring och INTE en revision(migration).
     failure_reason: Mapped[FailureReason | None] = mapped_column(
-        SQLEnum(FailureReason, native_enum=False, lenght=30, validate_strings=True),
+        SQLEnum(FailureReason, native_enum=False, length=30, validate_strings=True),
         nullable=True,
     )
 
