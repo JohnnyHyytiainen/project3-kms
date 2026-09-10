@@ -141,6 +141,39 @@ def test_build_file_record_for_youtube_transcript(tmp_path):
     assert record.s3_key == "youtube_transcripts/youtube_transcripts/python intro.md"
 
 
+# test för att se så att spelningen av mirror_transcripts fungerar som tänkt.
+# Filnamnet ska inte finnas i TRANSCRIPT_TO_COURSE_TAG.
+def test_build_file_record_for_mirror_transcript(tmp_path):
+    mirror = tmp_path / "youtube_transcripts" / "COMPLETE_COURSE_TRANSCRIPTS"
+    lesson = mirror / "python_course_DONE" / "17_pydantic"
+    lesson.mkdir(parents=True)
+    file_path = lesson / "17_part_1_pydantic.md"
+    file_path.write_text("innehåll")
+
+    record = build_file_record(file_path, tmp_path)
+
+    assert record.source_type == "transcript"
+    assert record.course_tag == "python"
+    # S3-nyckeln ska vara OFÖRÄNDRAD, den bär fortfarande VAR filen ligger
+    expected_key = (
+        "youtube_transcripts/youtube_transcripts/COMPLETE_COURSE_TRANSCRIPTS/"
+        "python_course_DONE/17_pydantic/17_part_1_pydantic.md"
+    )
+    assert record.s3_key == expected_key
+
+
+# Test för att en OKÄND mirror folder som SKA faila HÖGT och FORT.
+def test_build_file_record_raises_on_unknown_mirror_folder(tmp_path):
+    mirror = tmp_path / "youtube_transcripts" / "COMPLETE_COURSE_TRANSCRIPTS"
+    lesson = mirror / "helt_unknown_course_DONE" / "01_intro"
+    lesson.mkdir(parents=True)
+    file_path = lesson / "01_part_1_intro.md"
+    file_path.write_text("innehåll")
+
+    with pytest.raises(KeyError):
+        build_file_record(file_path, tmp_path)
+
+
 # Funktion för att FAILA LOUD ifall ett okänt repo namn upptäcks.
 def test_build_file_record_raises_on_unknown_repo(tmp_path):
     repo = tmp_path / "helt_unknown_repo"
