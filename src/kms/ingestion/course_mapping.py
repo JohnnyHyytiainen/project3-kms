@@ -22,6 +22,9 @@ REPO_TO_COURSE_TAG: dict[str, str] = {
     "youtube_transcripts": "youtube_transcripts",
 }
 
+# Suffix som avslutar varje spegelmapp under COMPLETE_COURSE_TRANSCRIPTS/ foldern
+MIRROR_FOLDER_SUFFIX = "_DONE"
+
 
 # Funktion för att skapa mina course_tags för varje repo
 def get_course_tag(repo_name: str) -> str:
@@ -38,6 +41,21 @@ def get_course_tag(repo_name: str) -> str:
         raise KeyError(
             f"Unknown repo '{repo_name}' - Add it to REPO_TO_COURSE_TAG in course_mapping.py before ingestion can continue"
         ) from None
+
+
+# Funktion för spegelmapparna, folder namnet ÄR REPO-NAMNET + "_DONE"
+def get_mirror_course_tag(folder_name: str) -> str:
+    """
+    Looks up the course_tag for its mirror folder under COMPLETE_COURSE_TRANSCRIPTS/ folder.
+
+    Each of the mirrored folder is named EXACTLY like a key in REPO_TO_COURSE_TAG
+    plus the suffix "_DONE". Stripping the suffix lets get_course_tag() function do the lookup:
+    Zero new mapping lines and an unknown folder still raises the same loud KeyError as an unknown repo.
+    """
+    # removesuffix() tar enbart bort "_DONE" om det står SIST i namnet.
+    repo_name = folder_name.removesuffix(MIRROR_FOLDER_SUFFIX)
+    # Samma explicita tabell för alla vanliga repon, samma fail fast, fail loud tänk vid okänt namn
+    return get_course_tag(repo_name)
 
 
 TRANSCRIPT_TO_COURSE_TAG: dict[str, str] = {
