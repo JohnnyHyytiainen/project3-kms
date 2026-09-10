@@ -24,12 +24,18 @@ from sqlalchemy.orm import Session
 # Import av mina dictionary mappings repots funktioner
 from kms.config import settings
 from kms.db.models import Document, DocumentStatus
-from kms.ingestion.course_mapping import get_course_tag, get_transcript_course_tag
+from kms.ingestion.course_mapping import (
+    get_course_tag,
+    get_mirror_course_tag,
+    get_transcript_course_tag,
+)
 from kms.storage.s3_client import ensure_bucket_exists, get_s3_client, upload_file
 
 # 1) Filtret, Endast dom här filerna
 # Endast dom här filerna är välkommna i mitt data lakehouse JUST NU
+# sub-foldern i youtube_transcripts/ där mina transcripts ligger sorterade PER KURS
 SUPPORTED_SUFFIXES = {".pdf", ".md"}
+MIRROR_TRANSCRIPTS_DIR = "COMPLETE_COURSE_TRANSCRIPTS"
 
 
 # 1) Funktionen för filrtet
@@ -106,7 +112,8 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
 
     A "cheap" and easy way to test in isolation (a dummy path suffices no real files are needed).
 
-    NOTE: get_course_tag/get_transcript_course_tag may raise a KeyError here.
+    NOTE: get_course_tag/get_mirror_course_tag/get_transcript_course_tag may
+    raise a KeyError here.
     It is NOT caught in this function, nor should it be caught in a broad
     try/except block around an individual file, an unknown repo name should
     stop the ENTIRE run, not be silently skipped.
@@ -124,7 +131,13 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
     # Specialhantering för just YT-transcripts semantiska tag
     # Finkornig, semantiskt korrekt tag PER fil.
     if repo_name == "youtube_transcripts":
-        course_tag = get_transcript_course_tag(file_path.name)
+        # Spegelmappar: COMPLETE_COURSE_TRANSCRIPTS/repo_done/lektion/fil.md
+        # parts[1] är undermappen, parts[2] är spegelmappen som bär kursen
+        if relative_to_root.parts[1] == MIRROR_TRANSCRIPTS_DIR:
+            course_tag = get_mirror_course_tag(relative_to_root.parts[2])
+        else:
+            # Platta transcripts/: filnamnet är enda nyckeln (53 rader i dicten)
+            course_tag = get_transcript_course_tag(file_path.name)
         source_type = "transcript"
     else:
         course_tag = s3_course_segment
