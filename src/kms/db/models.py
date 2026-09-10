@@ -93,7 +93,7 @@ class Document(Base):
     # native_enum=False precis som status, dvs VARCHAR i postgres,
     # En ny orsak blir DÄRFÖR en kodändring och INTE en revision(migration).
     failure_reason: Mapped[FailureReason | None] = mapped_column(
-        SQLEnum(FailureReason, native_enum=False, length=30, validate_strings=True),
+        SQLEnum(FailureReason, native_enum=False, length=35, validate_strings=True),
         nullable=True,
     )
 
