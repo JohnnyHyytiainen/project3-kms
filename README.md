@@ -44,7 +44,7 @@ Every figure below was counted against disk and against the database, never esti
 | Content duplicates collapsed | **66 (14.0 %)** |
 | Unique PDFs among them | **94** -> 90 `EXTRACTED`, 4 `FAILED` |
 | Full rebuild from an empty stack | **~28 s** (15.4 s ingestion + 12.2 s extraction) |
-| Test suite | **46 unit tests**, 0 integration |
+| Test suite | **53 unit tests**, 0 integration |
 
 Three of those gaps are open work, stated here rather than hidden:
 
