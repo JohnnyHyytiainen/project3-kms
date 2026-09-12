@@ -9,6 +9,7 @@
 # Hämta det som har status PENDING ur Postgres, hämta hem filen från S3, konvertera till text, chunka upp filen
 # Skriv parquet till silver, skriv chunk rader och uppdatera status i Postgres.
 
+import re
 import enum
 import tempfile
 from collections.abc import Callable
@@ -24,6 +25,9 @@ from kms.extraction.chunker import Section, chunk_document
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.storage.parquet_writer import write_chunks_to_parquet
 from kms.storage.s3_client import download_file, get_s3_client, require_bucket_exists
+
+MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+CODE_FENCE = re.compile(r"^\s*(```|~~~)")
 
 
 # --- 1: Extraherings outcome ---
@@ -60,16 +64,82 @@ def build_sections_from_pdfs(local_path: Path) -> list[Section]:
     ]
 
 
+# --- 3: Funktion för att göra sections av mina .md filer ---
+def build_sections_from_markdown(local_path: Path) -> list[Section]:
+    """
+    Turns a markdown file into chunkable units, one heading per block.
+
+    The heading line stays INSIDE the section text on purpose, it is the most
+    descriptive sentence in the block and what makes the chunk findable later.
+
+    Text before the first heading becomes its own section with heading=None.
+    A README opening with three paragraphs before its first heading must not lose them.
+
+    Raises nothing. extract_one_document() only catches PdfExtractionError around
+    this call, so an exception here would end the ENTIRE run instead of failing
+    one single document.
+    """
+    lines = local_path.read_text(encoding="utf-8", errors="replace").splitlines()
+
+    sections: list[Section] = []
+    buffer: list[str] = []
+    heading: str | None = None
+    start_line = 1
+
+    def close_section(end_line: int) -> None:
+        if not buffer:
+            return
+        sections.append(
+            Section(
+                text="\n".join(buffer),
+                source_location={
+                    "heading": heading,
+                    "line_start": start_line,
+                    "line_end": end_line,
+                },
+            )
+        )
+
+    in_code_fence = False
+
+    for line_number, line in enumerate(lines, start=1):
+        # Markören vänder tillståndet och är alltid innehåll, aldrig en rubrik.
+        if CODE_FENCE.match(line):
+            in_code_fence = not in_code_fence
+            buffer.append(line)
+            continue
+
+        # Inuti ett kodblock är "# something" en kommentar i kod, inte ett avsnitt.
+        if in_code_fence:
+            buffer.append(line)
+            continue
+
+        match = MARKDOWN_HEADING.match(line)
+        if match:
+            # Rubriken stänger föregående sektion på raden FÖRE sig själv
+            close_section(line_number - 1)
+            heading = match.group(2).strip()
+            buffer = [line]
+            start_line = line_number
+        else:
+            buffer.append(line)
+
+    close_section(len(lines))
+
+    return sections
+
+
 # Registret över filtyper systemet kan hantera.
 # s3key = Document.source_type, värde = funktionen som kan just den filtypen.
 #
 # Att lägga till markdown eller transkript senare är EN ny funktion och EN rad här.
 SECTION_BUILDERS: dict[str, Callable[[Path], list[Section]]] = {
     "pdf": build_sections_from_pdfs,
+    "markdown": build_sections_from_markdown,
 }
 
 
-# --- 3: Helper funktion för dokument som misslyckas ---
+# --- 4: Helper funktion för dokument som misslyckas ---
 # privat funktion FAAFO
 def _mark_failed(
     session: Session,
@@ -97,7 +167,7 @@ def _mark_failed(
     return ExtractionOutcome.FAILED
 
 
-# --- 4: Funktion för att extrahera ETT dokument ---
+# --- 5: Funktion för att extrahera ETT dokument ---
 def extract_one_document(
     document: Document,
     s3_client,
@@ -220,7 +290,7 @@ def extract_one_document(
     return ExtractionOutcome.EXTRACTED
 
 
-# --- 5: Funktion som fungerar som min ORKESTRERING ---
+# --- 6: Funktion som fungerar som min ORKESTRERING ---
 def run_extraction() -> None:
     """
     Sets up the connection, ITERATES over every PENDING document then prints a summary in terminal.

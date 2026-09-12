@@ -2,7 +2,7 @@
 # Kod: Engelska
 # Kommentarer: Svenska
 # ====================
-# Testerna är delade i 3 delar.
+# Testerna är delade i 5 delar.
 #
 # Del 1: Regression tests för infinity loops (bug som hittades tidigare i chunker.py)
 # A1: "a"*1726  --> 2 chunks [1500, 526]
@@ -23,11 +23,21 @@
 # B4: Testar att next_index räknas sekventiellt när tidigare section delats upp i flera chunks.
 # C4: Verifierar att tom section returnerar ett tomt index
 #
+# Del 5: Tester för build_sections_from_markdown() i extract.py
+# A5: En sektion per rubrikblock, rubrikraden ligger INNE i sektionens text
+# B5: Text före första rubriken blir en egen sektion utan rubrik
+# C5: Radintervallen är 1-indexerade, inklusiva, utan hål och utan överlapp
+# D5: Fil utan rubriker ger EN sektion, inte noll
+# E5: Tom fil ger tom lista, vilket uppströms blir NO_TEXT_EXTRACTED
+# F5: "#taggen" utan mellanslag är ingen rubrik
+# G5: Regression - rubrikliknande rad inuti ett kodblock delar inte sektionen
 import pytest
+from pathlib import Path
 
 from kms.extraction.chunker import MIN_CHUNK_SIZE, TARGET_CHUNK_SIZE
 from kms.extraction.chunker import chunk_section, chunk_document
 from kms.extraction.chunker import Section
+from kms.extraction.extract import build_sections_from_markdown
 
 
 #
@@ -203,3 +213,118 @@ def test_chunk_document_empty_input_returns_empty_list():
     """
     result = chunk_document([])
     assert result == []
+
+
+# ====== Del 5: Tester för build_sections_from_markdown() logik ======
+# ====================================================================
+#
+def write_markdown(tmp_path: Path, text: str) -> Path:
+    """
+    Writes the test text to a real file and returns its path.
+
+    build_sections_from_markdown() takes a Path and opens it itself, exactly like
+    it does in extract.py after download_file() has fetched the object from bronze.
+    tmp_path is pytests own temp directory, one per test, removed afterwards.
+    """
+    path = tmp_path / "doc.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+MARKDOWN_WITH_PREAMBLE = (
+    "Intro line before any heading.\n"
+    "\n"
+    "# First heading\n"
+    "Body of first.\n"
+    "\n"
+    "## Second heading\n"
+    "Body of second.\n"
+)
+
+
+# A5:
+def test_markdown_one_section_per_heading_block(tmp_path):
+    sections = build_sections_from_markdown(
+        write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
+    )
+
+    assert len(sections) == 3
+    assert sections[1].text.startswith("# First heading")
+    assert sections[2].text.startswith("## Second heading")
+    # Rubriknivån följer inte med i metadatan, bara rubrikens text.
+    assert [s.source_location["heading"] for s in sections] == [
+        None,
+        "First heading",
+        "Second heading",
+    ]
+
+
+# B5:
+def test_markdown_preamble_becomes_its_own_section(tmp_path):
+    sections = build_sections_from_markdown(
+        write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
+    )
+
+    assert sections[0].source_location["heading"] is None
+    assert sections[0].source_location["line_start"] == 1
+    assert "Intro line before any heading." in sections[0].text
+
+
+# C5:
+def test_markdown_line_ranges_are_contiguous_and_inclusive(tmp_path):
+    sections = build_sections_from_markdown(
+        write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
+    )
+    ranges = [
+        (s.source_location["line_start"], s.source_location["line_end"])
+        for s in sections
+    ]
+
+    assert ranges == [(1, 2), (3, 5), (6, 7)]
+    # Nästa sektion börjar alltid exakt på raden efter den föregåendes slut.
+    for (_, previous_end), (next_start, _) in zip(ranges, ranges[1:]):
+        assert next_start == previous_end + 1
+
+
+# D5:
+def test_markdown_without_headings_returns_single_section(tmp_path):
+    sections = build_sections_from_markdown(
+        write_markdown(tmp_path, "Just a paragraph.\nAnd another line.\n")
+    )
+
+    assert len(sections) == 1
+    assert sections[0].source_location == {
+        "heading": None,
+        "line_start": 1,
+        "line_end": 2,
+    }
+
+
+# E5:
+def test_markdown_empty_file_returns_empty_list(tmp_path):
+    assert build_sections_from_markdown(write_markdown(tmp_path, "")) == []
+
+
+# F5:
+def test_markdown_hash_without_space_is_not_a_heading(tmp_path):
+    text = "#hashtag is not a heading\n####### seven hashes is not either\nplain text\n"
+    sections = build_sections_from_markdown(write_markdown(tmp_path, text))
+
+    assert len(sections) == 1
+    assert sections[0].source_location["heading"] is None
+
+
+# G5:
+def test_markdown_heading_inside_code_fence_does_not_split(tmp_path):
+    text = (
+        "# Setup\nRun this:\n\n```bash\n# install dependencies\nuv sync\n```\n\nDone.\n"
+    )
+    sections = build_sections_from_markdown(write_markdown(tmp_path, text))
+
+    assert len(sections) == 1
+    assert sections[0].source_location == {
+        "heading": "Setup",
+        "line_start": 1,
+        "line_end": 9,
+    }
+    assert "# install dependencies" in sections[0].text
