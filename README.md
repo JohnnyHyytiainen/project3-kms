@@ -43,7 +43,7 @@ Every figure below was counted against disk and against the database, never esti
 | Rows in `documents` after content-hash dedup | **407** |
 | Content duplicates collapsed | **66 (14.0 %)** |
 | Unique PDFs among them | **94** -> 90 `EXTRACTED`, 4 `FAILED` |
-| Full rebuild from an empty stack | **~28 s** (15.4 s ingestion + 12.2 s extraction) |
+| Full rebuild from an empty stack | **~46 s** (21.4 s ingestion + 24.9 s extraction) via `tools/rebuild.py` |
 | Test suite | **53 unit tests**, 0 integration |
 
 Three of those gaps are open work, stated here rather than hidden:
@@ -117,8 +117,13 @@ Fill in `DB_USER`, `DB_PASSWORD` and `DB_NAME`. `docker-compose.yml` reads the s
 `uv run python -m kms.ingestion.ingest`  
 `uv run python -m kms.extraction.extract`
 
+**6. Rebuild after a LocalStack restart**
 
-> **The S3 bucket is empty after every LocalStack restart.** Persistence is a paid LocalStack feature, so the dev stack is treated as disposable on purpose: `repos_for_data/` is the only real source of truth, and Bronze is rebuilt from it. A full rebuild takes about 28 seconds - measured before the question of persistence was decided, and cheap enough to settle it.
+`uv run python tools/rebuild.py`
+
+Checks that LocalStack answers, asks for confirmation, truncates `chunks` and `documents`, then reruns ingestion and extraction and prints the time per step. The truncate is required: the dedup check reads from Postgres, so without it ingestion would skip every file and the bucket would stay empty.
+
+> **The S3 bucket is empty after every LocalStack restart.** Persistence is a paid LocalStack feature, so the dev stack is treated as disposable on purpose: `repos_for_data/` is the only real source of truth, and Bronze is rebuilt from it. A full rebuild takes about 46 seconds - measured before the question of persistence was decided, and cheap enough to settle it.
 
 ## 6. Attribution
 
