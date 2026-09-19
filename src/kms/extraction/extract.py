@@ -28,7 +28,7 @@ from kms.storage.s3_client import download_file, get_s3_client, require_bucket_e
 
 MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 CODE_FENCE = re.compile(r"^\s*(```|~~~)")
-TRANSCRIPT_TIMESTAMP = re.compile(r"^\*\*\[(\d{2}:\d{2})\]\*\*\s*(.*)$")
+TRANSCRIPT_TIMESTAMP = re.compile(r"^\*\*\[((?:\d{1,2}:)?\d{2}:\d{2})\]\*\*\s*(.*)$")
 TRANSCRIPT_FRONT_MATTER = re.compile(r"\A---\r?\n.*?\r?\n---\r?\n", re.S)
 
 
