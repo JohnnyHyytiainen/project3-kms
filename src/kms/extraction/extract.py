@@ -28,6 +28,8 @@ from kms.storage.s3_client import download_file, get_s3_client, require_bucket_e
 
 MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 CODE_FENCE = re.compile(r"^\s*(```|~~~)")
+TRANSCRIPT_TIMESTAMP = re.compile(r"^\*\*\[(\d{2}:\d{2})\]\*\*\s*(.*)$")
+TRANSCRIPT_FRONT_MATTER = re.compile(r"\A---\r?\n.*?\r?\n---\r?\n", re.S)
 
 
 # --- 1: Extraherings outcome ---
@@ -129,6 +131,46 @@ def build_sections_from_markdown(local_path: Path) -> list[Section]:
     return sections
 
 
+# --- 4: Funktion för att bygga sektioner ifrån YT transcripts ---
+def build_sections_from_transcripts(local_path: Path) -> list[Section]:
+    """
+    Turns a YouTube transcript into cunks, one time-segment per block.
+
+    The timestamp is kept OUT of the text and placed in source_location instead.
+    That is the opposite choice from the markdown builder, and done deliberately.
+    A heading is a descriptive sentence worth embedding, a timestamp is a coordinate.
+
+    Raises nothing. Same contract as build_sections_from_markdown().
+    """
+    raw = local_path.read_text(encoding="utf-8", errors="replace")
+    body = TRANSCRIPT_FRONT_MATTER.sub("", raw)
+
+    sections: list[Section] = []
+    timestamp: str | None = None
+    buffer: list[str] = []
+
+    def close_section() -> None:
+        text = "\n".join(buffer).strip()
+        if not text:
+            return
+        sections.append(Section(text=text, source_location={"timestamp": timestamp}))
+
+    for line in body.splitlines():
+        match = TRANSCRIPT_TIMESTAMP.match(line)
+        if match:
+            # Stämpeln stänger föregående block och öppnar nästa i samma steg.
+            close_section()
+            timestamp = match.group(1)
+            buffer = [match.group(2)]
+        elif timestamp is not None:
+            # Rader före första stämpeln är rubriken '# titel', dom hör inte till något block.
+            buffer.append(line)
+
+    close_section()
+
+    return sections
+
+
 # Registret över filtyper systemet kan hantera.
 # s3key = Document.source_type, värde = funktionen som kan just den filtypen.
 #
@@ -136,10 +178,11 @@ def build_sections_from_markdown(local_path: Path) -> list[Section]:
 SECTION_BUILDERS: dict[str, Callable[[Path], list[Section]]] = {
     "pdf": build_sections_from_pdfs,
     "markdown": build_sections_from_markdown,
+    "transcript": build_sections_from_transcripts,
 }
 
 
-# --- 4: Helper funktion för dokument som misslyckas ---
+# --- 5: Helper funktion för dokument som misslyckas ---
 # privat funktion FAAFO
 def _mark_failed(
     session: Session,
@@ -167,7 +210,7 @@ def _mark_failed(
     return ExtractionOutcome.FAILED
 
 
-# --- 5: Funktion för att extrahera ETT dokument ---
+# --- 6: Funktion för att extrahera ETT dokument ---
 def extract_one_document(
     document: Document,
     s3_client,
@@ -290,7 +333,7 @@ def extract_one_document(
     return ExtractionOutcome.EXTRACTED
 
 
-# --- 6: Funktion som fungerar som min ORKESTRERING ---
+# --- 7: Funktion som fungerar som min ORKESTRERING ---
 def run_extraction() -> None:
     """
     Sets up the connection, ITERATES over every PENDING document then prints a summary in terminal.
