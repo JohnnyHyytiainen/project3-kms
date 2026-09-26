@@ -24,7 +24,7 @@ config:
 flowchart LR
     SRC["Course material<br/>PDF · Markdown · Transcripts"] --> ING["Ingestion<br/>v1 - done"]
     ING --> BRONZE[("S3 + PostgreSQL<br/>Bronze")]
-    BRONZE --> EXT["Extraction & Chunking<br/>v2 - built"]
+    BRONZE --> EXT["Extraction & Chunking<br/>v2 - done"]
     EXT --> SILVER[("Parquet<br/>Silver")]
     SILVER --> EMB["Embeddings<br/>v3 - next"]
     EMB --> VDB[("ChromaDB")]
