@@ -8,7 +8,7 @@ from datetime import datetime
 
 # SQLAlchemy imports
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -75,16 +75,15 @@ class Document(Base):
     # Sträng, inte enum - beslut 4/5: kod-filtyper (.py/.sql/.ipynb) läggs
     # till som framtida iteration utan schemaändring
     source_type: Mapped[str] = mapped_column(String(20))
-    course_tag: Mapped[str] = mapped_column(String(50), index=True)
 
     status: Mapped[DocumentStatus] = mapped_column(
         SQLEnum(DocumentStatus, native_enum=False, length=20, validate_strings=True),
         default=DocumentStatus.PENDING,
     )
 
-    # Indexed, INTE UNIK, samma innehåll (exempel, en delad README mall)
-    # Kan finnas i flera repon med olika s3_keys
-    file_hash: Mapped[str] = mapped_column(String(64), index=True)
+    # UNIK. Innehållets identitet, ett innehåll = en rad.
+    # Samma innehåll på flera platser blir flera rader i source_files, INTE flera rader här.
+    file_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Maskinläsbar orsak. error_message är en HEADS UP till människa,
@@ -109,10 +108,68 @@ class Document(Base):
         back_populates="document", cascade="all, delete-orphan"
     )
 
+    # Alla platser på disk där det här innehållet finns. Alltid minst en.
+    # Samma cascade som chunks, raderas innehållet försvinner även dess exemplar.
+    source_files: Mapped[list["SourceFile"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+# SQLAlchemy baseclass för Course
+class Course(Base):
+    """One row per course. Which repo maps to which course is decided in course_mapping.py."""
+
+    __tablename__ = "courses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Samma längd som gamla Document.course_tag, inget befintligt värde behöver kortas ner
+    course_tag: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+    # Ingen cascade med flit, en kurs som har exemplar ska INTE gå att radera
+    source_files: Mapped[list["SourceFile"]] = relationship(back_populates="course")
+
+
+# SQLAlchemy baseclass för SourceFile
+class SourceFile(Base):
+    """
+    One row per file found on disk.
+    The bridge between documents (WHAT the content is) and courses (WHERE it belongs).
+    """
+
+    __tablename__ = "source_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Raderas innehållet försvinner exemplaren med det
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+
+    # Postgres indexerar INTE foreign keys av sig själv, index=True krävs för joins per kurs
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), index=True)
+
+    # {repo}/{sökväg i repot}. En plats på disk = exakt en rad
+    source_path: Mapped[str] = mapped_column(String(1024), unique=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    document: Mapped["Document"] = relationship(back_populates="source_files")
+    course: Mapped["Course"] = relationship(back_populates="source_files")
+
 
 # SQLAlchemy baseclass för Chunks
 class Chunk(Base):
     __tablename__ = "chunks"
+
+    # En chunk är ETT innehåll + EN position. Databasen ska VÄGRA duplicates
+    # Om den inte VÄGRAR duplicates får jag duplicate vectors i V3
+    # Namngiven med FLIT - Alembic behöver namnet för att kunna ta bort vid downgrade.
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id", "chunk_index", name="uq_chunks_document_id_chunk_index"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     document_id: Mapped[int] = mapped_column(

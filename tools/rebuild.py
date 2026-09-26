@@ -24,7 +24,7 @@ from kms.storage.s3_client import get_s3_client
 # users, alembic_versions går inte att bygga om och rörs ALDRIG
 # Räknas upp en och en av design, CASCADE hade även tömt framtida tables som
 # pekar på documents utan att någon ber om det.
-DERIVED_TABLES = ("chunks", "documents")
+DERIVED_TABLES = ("chunks", "source_files", "documents", "courses")
 
 
 # ===== 1: Kontrollera FÖRST innan något annat =====

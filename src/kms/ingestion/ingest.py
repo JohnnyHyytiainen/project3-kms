@@ -9,9 +9,11 @@
 # if __name__.... samma kod fungerar som vanliga script nu och som AIRFLOW task i MVP  V5
 
 import hashlib
+import enum
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from collections import Counter
 
 # Boto3
 from botocore.exceptions import ClientError
@@ -23,7 +25,7 @@ from sqlalchemy.orm import Session
 
 # Import av mina dictionary mappings repots funktioner
 from kms.config import settings
-from kms.db.models import Document, DocumentStatus
+from kms.db.models import Course, Document, DocumentStatus, SourceFile
 from kms.ingestion.course_mapping import (
     get_course_tag,
     get_mirror_course_tag,
@@ -31,14 +33,29 @@ from kms.ingestion.course_mapping import (
 )
 from kms.storage.s3_client import ensure_bucket_exists, get_s3_client, upload_file
 
-# 1) Filtret, Endast dom här filerna
+# 1a) Filtret, Endast dom här filerna
 # Endast dom här filerna är välkommna i mitt data lakehouse JUST NU
 # sub-foldern i youtube_transcripts/ där mina transcripts ligger sorterade PER KURS
 SUPPORTED_SUFFIXES = {".pdf", ".md"}
 MIRROR_TRANSCRIPTS_DIR = "COMPLETE_COURSE_TRANSCRIPTS"
 
 
-# 1) Funktionen för filrtet
+# 1b) Utfallet för EN fil i EN körning. Samma mönster som ExtractionOutcome i extract.py
+class IngestOutcome(str, enum.Enum):
+    """
+    Result of processing ONE file in ONE run.
+
+    NEW_DOCUMENT: content thats never been seen before, uploaded to S3, new row in documents.
+    NEW_COPY: Known content found at a new place, new row in source_files ONLY.
+    SKIPPED: Nothing written, unreadable file, S3 error or already registered.
+    """
+
+    NEW_DOCUMENT = "new_document"
+    NEW_COPY = "new_copy"
+    SKIPPED = "skipped"
+
+
+# 1c) Funktionen för filrtet
 # Funktion för att filtrera och hitta mina "supported" filtyper.
 def is_supported_file(file_path: Path) -> bool:
     """
@@ -98,8 +115,9 @@ class DiscoveredFile:
     local_path: Path  # Lokala pathen på min dator
     filename: str  # Filnamnet
     s3_key: str  # Min S3 KEY
-    course_tag: str  # Document.course_tag, SEMANTIK, vad filen HANDLAR OM
+    course_tag: str  # Kursen för DETTA exemplar, blir en rad i courses via source_files
     source_type: str  # "pdf" | "markdown" | "transcript"
+    source_path: str  # {repo}/{sökväg i repot}, exemplarets unika plats på disk
 
 
 # 4) Metadata byggaren. Härled allt från sökvägen
@@ -153,6 +171,7 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
         s3_key=s3_key,
         course_tag=course_tag,
         source_type=source_type,
+        source_path=relative_to_root.as_posix(),
     )
 
 
@@ -180,93 +199,164 @@ def compute_file_hash(file_path: Path) -> str:
     return hasher.hexdigest()
 
 
-# 6) Funktion för att göra query mot postgres DB, använder python set
-# för att optimera för HASTIGHET. En fråga mot postgres,
-# HELA file_hash column till ett set. Undviker N+1
-def load_existing_hashes(session: Session) -> set[str]:
+# 6a) Minnet, tre uppslagningar som hämtas EN gång per körning (undviker N+1 problem)
+def load_known_documents(session: Session) -> dict[str, int]:
     """
-    Function to query Postgres,
-    instead of querying the database 100 times, function execute a single SQL query:
-    SELECT file_hash FROM documents.
+    ONE query: file_hash -> document_id for every document in Postgres.
+    A dict instead of a set, a new copy of known content must know WHICH document to point at.
+    """
+    result = session.execute(select(Document.file_hash, Document.id))
+    return {file_hash: document_id for file_hash, document_id in result.all()}
 
-    All the results are stored in a Python set to increase speed when searching.
+
+def load_known_paths(session: Session) -> dict[str, int]:
     """
-    result = session.execute(select(Document.file_hash))
-    return set(result.scalars().all())
+    ONE query: source_path -> document_id for every file already registered.
+    Recognizes a file from an earlier run, and catches a path whose content has changed.
+    """
+    result = session.execute(select(SourceFile.source_path, SourceFile.document_id))
+    return {source_path: document_id for source_path, document_id in result.all()}
+
+
+def load_course_ids(session: Session) -> dict[str, int]:
+    """ONE query: course_tag -> course_id for every course in Postgres."""
+    result = session.execute(select(Course.course_tag, Course.id))
+    return {course_tag: course_id for course_tag, course_id in result.all()}
+
+
+def get_or_create_course_id(
+    course_tag: str, course_ids: dict[str, int], session: Session
+) -> int:
+    """
+    Returns the course id, creates the course row the first time the tag is seen.
+    flush() sends the INSERT so Postgres hands out the id, WITHOUT committing.
+    The course gets committed together with the file row that needed it.
+    """
+    # Redan känd, ingen fråga mot databasen alls
+    if course_tag in course_ids:
+        return course_ids[course_tag]
+
+    # Första gången taggen dyker upp i körningen
+    course = Course(course_tag=course_tag)
+    session.add(course)
+    session.flush()  # INSERT skickas, id finns nu, ingen commit än
+
+    # Uppdatera minnet direkt, nästa fil i samma kurs slipper frågan
+    course_ids[course_tag] = course.id
+    return course.id
+
+
+# 6b) Commit med skyddsnät
+def commit_or_raise(session: Session, record: DiscoveredFile) -> None:
+    """
+    Commits, and turns an IntegrityError into a loud stop.
+    The explicit checks in ingest_one_file should make this unreachable,
+    the UNIQUE rules in Postgres are the safety net if they ever miss.
+    """
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()  # Sessionen är oanvändbar tills rollback() körts
+        raise RuntimeError(
+            f"Postgres refused '{record.source_path}', a UNIQUE rule was broken "
+            f"that the checks in ingest_one_file did not catch. Stop and investigate!"
+        ) from None
 
 
 # 7) Funktion för att ingesta EN fil i taget
-# True = en ny rad skriven. False = hoppas över pga 3 orsaker som står kommenterade i koden
+# Tre utfall: nytt dokument, nytt exemplar av känt innehåll, eller överhoppad
 def ingest_one_file(
     record: DiscoveredFile,
-    existing_hashes: set[str],
+    known_documents: dict[str, int],
+    known_paths: dict[str, int],
+    course_ids: dict[str, int],
     s3_client,
     bucket_name: str,
     session: Session,
-) -> bool:
+) -> IngestOutcome:
     """
     Attempting to ingest ONE file.
-    True = new line written.
-    False = Skipped for 1 of 3 reasons.
 
-    1: File cannot be read
-    2: Transient network error with S3
-    3: Same s3_key raises RuntimeError
+    NEW_DOCUMENT: new content, uploaded to S3, new row in documents AND source_files.
+    NEW_COPY: known content at a new path, new row in source_files only.
+    SKIPPED: unreadable file, S3 error, or path already registered with same content.
+
+    Raises RuntimeError when a registered path has gotten NEW content.
+    Checked BEFORE any upload, so S3 and Postgres can never drift apart.
     """
     # === FELTYP 1: Lokalt LÄSFEL ===
     try:
         file_hash = compute_file_hash(record.local_path)
     except OSError as e:
         print(f"[SKIPPING] could not read: {record.local_path}: {e}")
-        return False  # Avbryt för DENNA fil, returnera False (misslyckades)
+        return IngestOutcome.SKIPPED
 
-    # === Deduplication . FÖRE någon nätverks/disk(I/O) operation ===
-    if file_hash in existing_hashes:
-        return False  # Fil finns redan i DB, hoppa över i tystnad
+    # === Sökvägen redan registrerad? FÖRE all nätverks-I/O ===
+    if record.source_path in known_paths:
+        # Samma innehåll som förra körningen, redan registrerad, inget att göra
+        if known_documents.get(file_hash) == known_paths[record.source_path]:
+            return IngestOutcome.SKIPPED
+        # === FELTYP 3: Innehållskonflikt (Fail Loud) ===
+        # Samma sökväg, NYTT innehåll. Upptäcks nu FÖRE uppladdning till S3
+        raise RuntimeError(
+            f"source_path '{record.source_path}' is already registered with DIFFERENT "
+            f"content than what was just calculated. Same path, changed content - "
+            f"Requires a manual decision, not an automated solution!"
+        )
 
-    # === FELTYP 2: Nätverkfel mot S3 ===
-    # Transient network error mot S3
+    # === Känt innehåll på en NY plats = nytt exemplar ===
+    # Ingen uppladdning, innehållet ligger redan i S3 exakt en gång
+    if file_hash in known_documents:
+        document_id = known_documents[file_hash]
+        course_id = get_or_create_course_id(record.course_tag, course_ids, session)
+        session.add(
+            SourceFile(
+                document_id=document_id,
+                course_id=course_id,
+                source_path=record.source_path,
+            )
+        )
+        commit_or_raise(session, record)
+
+        # Uppdaterar minnet DIREKT
+        known_paths[record.source_path] = document_id
+        return IngestOutcome.NEW_COPY
+
+    # === FELTYP 2: Nätverksfel mot S3 ===
     try:
         upload_file(s3_client, str(record.local_path), bucket_name, record.s3_key)
     except ClientError as e:
         print(f"[SKIPPING] S3-upload failed because: {record.s3_key}: {e}")
-        return False  # S3 nere, avbryt. Postgres raden skapas INTE, den försöker nästa igen nästa run.
+        return IngestOutcome.SKIPPED  # Inget skrivs, nästa körning försöker igen
 
-    # === DATABAS: Förbereder för att spara METADATAN ===
+    # === DATABAS: nytt innehåll = ny rad i documents + dess första exemplar ===
+    # Kursen hämtas EFTER uppladdningen, misslyckas S3 skapas ingen kurs i onödan
+    course_id = get_or_create_course_id(record.course_tag, course_ids, session)
     document = Document(
         s3_key=record.s3_key,
         filename=record.filename,
         source_type=record.source_type,
-        course_tag=record.course_tag,
         file_hash=file_hash,
-        status=DocumentStatus.PENDING,  # Framtida Airflow + PyMuPDF vet nu att PENDING väntar på extraction.
+        status=DocumentStatus.PENDING,  # Extraktionen plockar upp PENDING
     )
-    session.add(document)  # lägger till temporärt i minne
+    # Exemplaret läggs till via relationen, SQLAlchemy fyller i document_id vid INSERT
+    document.source_files.append(
+        SourceFile(course_id=course_id, source_path=record.source_path)
+    )
+    session.add(document)
+    commit_or_raise(session, record)
 
-    # === FELTYP 3: Innehållskonflikt (Fail Loud) ===
-    # Samma s3_key men ANNAN hash som innebär att en "gammal" sökväg har fått nytt innehåll. Det SKA faila HÖGT.
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()  # Sessionen är oanvändbar tills rollback() har körts. Rensar temporärt minne för att undvika DB låsning
-        # Stopp. 'from None' klipper bort en rörig SQLAlchemy log och visar bara felet.
-        raise RuntimeError(
-            f"s3_key '{record.s3_key}' already exists in Postgres with a DIFFERENT "
-            f"hash then what was just calculated. Same Path, changed content - "
-            f"Requires a manual decision, not an automated solution!"
-        ) from None
-
-    # === Uppdaterar minnet DIREKT ===
-    # Om samma fil hittas IGEN i körningen måste systemet veta om det
-    existing_hashes.add(file_hash)
-    return True  # Filen laddades upp och loggades
+    # Uppdaterar minnet DIREKT, en kopia senare i SAMMA körning måste hitta hit
+    known_documents[file_hash] = document.id
+    known_paths[record.source_path] = document.id
+    return IngestOutcome.NEW_DOCUMENT
 
 
 # 8) Funktion för orkestrering som sätter upp mina anslutningar och kör igenom varje fil.
 def run_ingestion() -> None:
     """
-    This function only sets up the connections to start all loops
-    under settings.COURSE_REPOS_ROOT and prints a summary.
+    Sets up the connections, loads what Postgres already knows ONCE,
+    runs every file under settings.COURSE_REPOS_ROOT and prints a summary.
     """
     # Startar uppkopplingar
     engine = create_engine(settings.database_url)
@@ -274,29 +364,35 @@ def run_ingestion() -> None:
     # Fail LOUD: Krasch om LocalStack är dött
     ensure_bucket_exists(s3_client, settings.S3_BUCKET_NAME)
 
-    # Counter av ingested och skippade
-    ingested_count = 0
-    skipped_count = 0
+    # En räknare per utfall. Counter ger 0 för ett utfall som aldrig inträffat
+    outcomes: Counter[IngestOutcome] = Counter()
 
     # Öppnar en DB session (stängs per automatik när blocket är klart)
     with Session(engine) as session:
-        # Hämtar hashes EN gång(Löser N+1 issues)
-        existing_hashes = load_existing_hashes(session)
+        # Minnet hämtas EN gång, tre frågor totalt oavsett antal filer (löser N+1)
+        known_documents = load_known_documents(session)
+        known_paths = load_known_paths(session)
+        course_ids = load_course_ids(session)
 
         # Hämtar en fil i taget från generatorn (Streamar)
         for file_path in walk_source_files(settings.COURSE_REPOS_ROOT):
-            # Bygger min metadata (Ren python funktion)
             record = build_file_record(file_path, settings.COURSE_REPOS_ROOT)
-            # Försöker ladda upp och logga
-            was_ingested = ingest_one_file(
-                record, existing_hashes, s3_client, settings.S3_BUCKET_NAME, session
+            outcome = ingest_one_file(
+                record,
+                known_documents,
+                known_paths,
+                course_ids,
+                s3_client,
+                settings.S3_BUCKET_NAME,
+                session,
             )
-            # räknar ut resultat för min summering
-            if was_ingested:
-                ingested_count += 1
-            else:
-                skipped_count += 1
-    print(f"Done. {ingested_count} new files ingested, {skipped_count} skipped files.")
+            outcomes[outcome] += 1
+
+    print(
+        f"Done. {outcomes[IngestOutcome.NEW_DOCUMENT]} new documents, "
+        f"{outcomes[IngestOutcome.NEW_COPY]} new copies, "
+        f"{outcomes[IngestOutcome.SKIPPED]} skipped."
+    )
 
 
 # === ENTRYPOINT ===
