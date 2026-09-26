@@ -1,0 +1,54 @@
+---
+config:
+  theme: neo-dark
+---
+erDiagram
+    courses {
+        SERIAL id PK
+        VARCHAR50 course_tag "not null unique"
+    }
+
+    source_files {
+        SERIAL id PK "one row per file on disk"
+        INTEGER document_id FK "not null index - on delete cascade"
+        INTEGER course_id FK "not null index"
+        VARCHAR1024 source_path "not null unique - repo and path"
+        TIMESTAMP created_at "default now"
+    }
+
+    documents {
+        SERIAL id PK "one row per unique content "
+        VARCHAR64 file_hash "not null unique"
+        VARCHAR1024 s3_key "not null unique- object in S3"
+        VARCHAR255 filename "not null"
+        VARCHAR20 source_type "not null"
+        VARCHAR20 status "not null"
+        TEXT error_message
+        VARCHAR35 failure_reason
+        TIMESTAMP created_at "default now"
+        TIMESTAMP updated_at "default now"
+    }
+
+    chunks {
+        SERIAL id PK
+        INTEGER document_id FK "not null - unique together with chunk_index"
+        INTEGER chunk_index "not null"
+        TEXT content "not null"
+        VARCHAR255 vector_id "empty until v3"
+        JSONB source_location
+        INTEGER char_count "not null"
+        TIMESTAMP created_at "default now"
+    }
+
+    users {
+        SERIAL id PK
+        VARCHAR64 api_key_hash "not null unique"
+        VARCHAR100 label "not null"
+        BOOLEAN is_active "not null"
+        TIMESTAMP created_at "default now"
+        TIMESTAMP last_used_at
+    }
+
+    courses ||--o{ source_files : "course_id"
+    documents ||--|{ source_files : "document_id"
+    documents ||--o{ chunks : "document_id"
