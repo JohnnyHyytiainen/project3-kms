@@ -112,6 +112,12 @@ När man skriver en post till en `ChromaDB-collection` (`collection.add()` eller
 
     3) Gör en `SELECT ... JOIN` i `Postgres` med hjälp av dessa `vector_id` för att hämta fullständig dokument och källinformation.
 
+
+---
+
+### Flowchart:
+- Streckad linje visar en sökning (Search path)
+- Heldragen linje visar skrivningen (Write path)
 ```mermaid
 ---
 config:
