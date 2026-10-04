@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     DB_PORT: int
 
     GRUNDEN_API_KEY: str  # oanvänd förrän MVP v3
+    CHROMA_HOST: str
+    CHROMA_PORT: int
 
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str

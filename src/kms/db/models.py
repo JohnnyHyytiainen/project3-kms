@@ -5,10 +5,11 @@
 # Imports
 import enum
 from datetime import datetime
+import uuid
 
 # SQLAlchemy imports
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -96,6 +97,14 @@ class Document(Base):
         nullable=True,
     )
 
+    # sidmått - Bara PDF. Null = docs har inga sidor (markdown, transcript),
+    # 0 = mätt och det fanns inga. Samma tanke som failure_reason.
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Sidor helt UTAN text (kräver OCR)
+    empty_page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Sidor med text men UNDER MIN_CHUNK_SIZE som kastas av chunkern
+    short_page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Server_default, inte python default. Postgres egen NOW()
     # Vald nu i mvp v1 för att underlätta när Airflow kör parallella tasks i v5
     # Samma anledning till att status blev en tillståndsmaskin per rad
@@ -178,8 +187,12 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
 
-    # Nullable, fyller i först i MVP v3 när mina chunks faktiskt har embeddats
-    vector_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # UUIDv5 av file_hash + chunk_index, räknas ut i extraktionen.
+    # Unik: ett ID = en vektor i Chroma. Index: varje sökträff slås upp hit.
+    # NOT NULL: en chunk utan ID kan aldrig bli en vektor - databasen vägrar den.
+    vector_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, unique=True, index=True, nullable=False
+    )
 
     # JSONB(JSONL), inte för separata columns, platsdata skiljer sig per source_type
     # exempel: Sidnummer för PDF, row intervall för markdown, tidsintervall för YT transkript.

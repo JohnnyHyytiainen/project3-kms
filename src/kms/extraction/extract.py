@@ -12,6 +12,7 @@
 import re
 import enum
 import tempfile
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -21,15 +22,20 @@ from sqlalchemy.orm import Session
 
 from kms.config import settings
 from kms.db.models import Chunk, Document, DocumentStatus, FailureReason
-from kms.extraction.chunker import Section, chunk_document
+from kms.extraction.chunker import MIN_CHUNK_SIZE, Section, chunk_document
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.storage.parquet_writer import write_chunks_to_parquet
 from kms.storage.s3_client import download_file, get_s3_client, require_bucket_exists
 
+# Regex constants
 MARKDOWN_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 CODE_FENCE = re.compile(r"^\s*(```|~~~)")
 TRANSCRIPT_TIMESTAMP = re.compile(r"^\*\*\[((?:\d{1,2}:)?\d{2}:\d{2})\]\*\*\s*(.*)$")
 TRANSCRIPT_FRONT_MATTER = re.compile(r"\A---\r?\n.*?\r?\n---\r?\n", re.S)
+# Projektets namespace för vector_id.
+# Genererats och genereras EN gång med uuid.uuid4() och ändras ALDRIG.
+# Varje vector_id byggs på den här. Bor i KODEN och inte i .env
+KMS_NAMESPACE = uuid.UUID("16acb480-21a4-4d26-8490-cfaa394ffa7b")
 
 
 # --- 1: Extraherings outcome ---
@@ -210,7 +216,35 @@ def _mark_failed(
     return ExtractionOutcome.FAILED
 
 
-# --- 6: Funktion för att extrahera ETT dokument ---
+# --- 6: Funktion för vector_id och deterministiskt ID per chunk ---
+def make_vector_id(file_hash: str, chunk_index: int) -> uuid.UUID:
+    """
+    Deterministic ID for ONE chunk:
+    Same content + same position -> same id, every run, on every machine.
+
+    Written to chunks.vector_id here, used as the record id in Chroma.
+    file_hash and not the chunk text: Transcript copies with identical text
+    must not collaps into ONE id.
+    """
+    return uuid.uuid5(KMS_NAMESPACE, f"{file_hash}:{chunk_index}")
+
+
+# --- 7: Funktion för sidmått (Endast PDF'er) ---
+def measure_pages(sections: list[Section]) -> tuple[int, int, int]:
+    """
+    Page metrics for ONE PDF: (page_count, empty_page_count, short_page_count).
+
+    Only VALID PDFs - build_sections_from_pdfs give exactly one section per page.
+    Same strip() and MIN_CHUNK_SIZE as the chunker so "short" means exactly:
+    had text, but the chunker threw it away.
+    """
+    lengths = [len(section.text.strip()) for section in sections]
+    empty = sum(1 for n in lengths if n == 0)
+    short = sum(1 for n in lengths if 0 < n < MIN_CHUNK_SIZE)
+    return len(lengths), empty, short
+
+
+# --- 8: Funktion för att extrahera ETT dokument ---
 def extract_one_document(
     document: Document,
     s3_client,
@@ -262,6 +296,15 @@ def extract_one_document(
                 FailureReason.UNREADABLE_SOURCE,
                 f"extraction failed: {e}",
             )
+
+        # --- Sidmått: Bara PDF, ska mötas FÖRE noll-chunk-koll ---
+        # PDF som blir FAILED (bilder) ska få sina sidor räknade, _mark_failed committar
+        # den tillsammans med status
+        if document.source_type == "pdf":
+            page_count, empty_pages, short_pages = measure_pages(sections)
+            document.page_count = page_count
+            document.empty_page_count = empty_pages
+            document.short_page_count = short_pages
 
         chunks = chunk_document(sections)
 
@@ -321,6 +364,7 @@ def extract_one_document(
                     content=chunk.content,
                     source_location=chunk.source_location,
                     char_count=chunk.char_count,
+                    vector_id=make_vector_id(document.file_hash, chunk.chunk_index),
                 )
                 for chunk in chunks
             ]
@@ -333,7 +377,7 @@ def extract_one_document(
     return ExtractionOutcome.EXTRACTED
 
 
-# --- 7: Funktion som fungerar som min ORKESTRERING ---
+# --- 9: Funktion som fungerar som min ORKESTRERING ---
 def run_extraction() -> None:
     """
     Sets up the connection, ITERATES over every PENDING document then prints a summary in terminal.

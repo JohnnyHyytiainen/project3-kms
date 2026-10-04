@@ -14,6 +14,8 @@ _UNIT_TEST_DEFAULTS = {
     "DB_NAME": "test",
     "DB_HOST": "localhost",
     "DB_PORT": "5432",
+    "CHROMA_HOST": "localhost",
+    "CHROMA_PORT": "8006",
     "GRUNDEN_API_KEY": "test",
     "AWS_ACCESS_KEY_ID": "test",
     "AWS_SECRET_ACCESS_KEY": "test",

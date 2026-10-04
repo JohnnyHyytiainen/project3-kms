@@ -30,9 +30,23 @@ services:
       - DEBUG=0
     ports:
       - "4566:4566" # LocalStack Gateway
+
+  # Chroma ÄR vektordatabasen - Egen container så att API't (V4) kan läsa samtidigt som rebuild.py skriver.
+  # Samma mönster som Postgres.
+  chroma:
+    image: chromadb/chroma:1.5.9 # Pinnad version - Python klienten låses till samma version
+    container_name: kms_chroma
+    ports:
+      - "8006:8000"
     volumes:
-      - localstack_data:/var/lib/localstack
+      - chroma_data:/data   # 1.x sparar i /data, inte /chroma/chroma som i 0.x-guider
+    healthcheck:
+      # Imagen saknar curl - bash öppnar en TCP-anslutning mot porten istället
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/8000' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
-  localstack_data:
+  chroma_data:
