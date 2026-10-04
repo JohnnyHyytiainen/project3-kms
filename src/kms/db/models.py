@@ -187,10 +187,11 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
 
-    # UUIDv5 av file_hash + chunk_index, blir uträknad i extraction.
-    # Unik: ett ID = En vector i Chroma. Index: Sarje sökträff slås upp hit.
-    vector_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, unique=True, index=True, nullable=True
+    # UUIDv5 av file_hash + chunk_index, räknas ut i extraktionen.
+    # Unik: ett ID = en vektor i Chroma. Index: varje sökträff slås upp hit.
+    # NOT NULL: en chunk utan ID kan aldrig bli en vektor - databasen vägrar den.
+    vector_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, unique=True, index=True, nullable=False
     )
 
     # JSONB(JSONL), inte för separata columns, platsdata skiljer sig per source_type
