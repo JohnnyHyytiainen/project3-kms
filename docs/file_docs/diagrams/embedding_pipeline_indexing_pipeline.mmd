@@ -1,0 +1,13 @@
+---
+config:
+  theme: neo-dark
+---
+flowchart TD
+    A[Hämta EXTRACTED-dokument ur Postgres] --> B[Ett dokument: chunkar + kurser]
+    B --> C[Batchar om ≤32 → Grunden.ai]
+    C -->|fel efter omförsök| S[SKIPPED: står kvar som EXTRACTED]
+    C --> D[Alla vektorer klara i minnet]
+    D --> E[upsert till Chroma, alla chunkar på en gång]
+    E --> F[status = EMBEDDED, commit i Postgres]
+    F --> B
+    S --> B
