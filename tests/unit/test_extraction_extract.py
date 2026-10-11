@@ -58,7 +58,7 @@ MARKDOWN_WITH_PREAMBLE = (
 )
 
 
-# A5:
+# A1:
 def test_markdown_one_section_per_heading_block(tmp_path):
     sections = build_sections_from_markdown(
         write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
@@ -75,7 +75,7 @@ def test_markdown_one_section_per_heading_block(tmp_path):
     ]
 
 
-# B5:
+# B1:
 def test_markdown_preamble_becomes_its_own_section(tmp_path):
     sections = build_sections_from_markdown(
         write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
@@ -86,7 +86,7 @@ def test_markdown_preamble_becomes_its_own_section(tmp_path):
     assert "Intro line before any heading." in sections[0].text
 
 
-# C5:
+# C1:
 def test_markdown_line_ranges_are_contiguous_and_inclusive(tmp_path):
     sections = build_sections_from_markdown(
         write_markdown(tmp_path, MARKDOWN_WITH_PREAMBLE)
@@ -102,7 +102,7 @@ def test_markdown_line_ranges_are_contiguous_and_inclusive(tmp_path):
         assert next_start == previous_end + 1
 
 
-# D5:
+# D1:
 def test_markdown_without_headings_returns_single_section(tmp_path):
     sections = build_sections_from_markdown(
         write_markdown(tmp_path, "Just a paragraph.\nAnd another line.\n")
@@ -116,12 +116,12 @@ def test_markdown_without_headings_returns_single_section(tmp_path):
     }
 
 
-# E5:
+# E1:
 def test_markdown_empty_file_returns_empty_list(tmp_path):
     assert build_sections_from_markdown(write_markdown(tmp_path, "")) == []
 
 
-# F5:
+# F1:
 def test_markdown_hash_without_space_is_not_a_heading(tmp_path):
     text = "#hashtag is not a heading\n####### seven hashes is not either\nplain text\n"
     sections = build_sections_from_markdown(write_markdown(tmp_path, text))
@@ -130,7 +130,7 @@ def test_markdown_hash_without_space_is_not_a_heading(tmp_path):
     assert sections[0].source_location["heading"] is None
 
 
-# G5:
+# G1:
 def test_markdown_heading_inside_code_fence_does_not_split(tmp_path):
     text = (
         "# Setup\nRun this:\n\n```bash\n# install dependencies\nuv sync\n```\n\nDone.\n"
