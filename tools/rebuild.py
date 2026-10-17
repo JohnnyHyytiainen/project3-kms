@@ -16,6 +16,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import create_engine, text
 
 from kms.config import settings
+from kms.embedding.embed import run_embedding
 from kms.extraction.extract import run_extraction
 from kms.ingestion.ingest import run_ingestion
 from kms.storage.s3_client import get_s3_client
@@ -93,11 +94,12 @@ def main() -> None:
         return
 
     # Ordningen är låst: extraktionen arbetar bara på PENDING rows.
-    # och dom skapas av ingestion. MVP v3 läggs embedding till som en rad här.
+    # embeddingen tar bara EXTRACTED rows. Varje steg skapar statusen som nästa steg letar efter.
     steps = [
         ("truncate", truncate_derived_tables),
         ("ingestion", run_ingestion),
         ("extraction", run_extraction),
+        ("embedding", run_embedding),
     ]
 
     # Klockan startar EFTER frågan, väntan på ett svar ska inte räknas in i tiden.
