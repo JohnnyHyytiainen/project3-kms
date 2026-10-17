@@ -7,7 +7,7 @@
 # Kommentarer: Svenska
 #
 # Ordningen scriptet körs med är:
-# Kontrollera, fråga, töm, ingest, extract och embed.
+# Kontrollera, fråga, töm(truncate), töm(drop collection - chroma), ingest, extract och embed.
 # Körs med: uv run python tools/rebuild.py
 
 import time
@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, text
 
 from kms.config import settings
 from kms.embedding.embed import (
+    COLLECTION_NAME,
     get_chroma_client,
     get_openai_client,
     require_embedding_ready,
@@ -81,6 +82,9 @@ def confirm_rebuild() -> bool:
     print(f" Database: {settings.DB_NAME} @ {settings.DB_HOST}:{settings.DB_PORT}")
     print(f" Tables:   {', '.join(DERIVED_TABLES)}")
     print(f" Bucket:   {settings.S3_BUCKET_NAME} @ {settings.AWS_ENDPOINT_URL}")
+    print(
+        f" Vectors:  {COLLECTION_NAME} @ {settings.CHROMA_HOST}:{settings.CHROMA_PORT}"
+    )
     answer = input("Type 'yes' to continue: ")
     # Exakt 'yes'. Ett slarvigt 'y' eller en Enter ska inte räcka för att tömma något.
     return answer.strip().lower() == "yes"
@@ -106,7 +110,22 @@ def truncate_derived_tables() -> None:
     engine.dispose()
 
 
-# ===== 5: Orkestrering =====
+# ===== 5: Töm vectors, likt truncate_derived_tables() funktionen fast för vektorer =====
+def drop_collection() -> None:
+    """
+    Deletes the ChromaDB collection. To ensure vectors for removed files aren't kept.
+
+    run_embedding() creates it again with the correct settings (cosine and no embedding function),
+    this way the settings live in ONE place and ONE place only: embed.py script.
+    """
+    client = get_chroma_client()
+    # fungerar likt DROP TABLE IF EXISTS.
+    # Existerar data? Töm. Existerar ingen data? Finns inget att tömma.
+    if COLLECTION_NAME in [collection.name for collection in client.list_collections()]:
+        client.delete_collection(COLLECTION_NAME)
+
+
+# ===== 6: Orkestrering =====
 def main() -> None:
     check_localstack()
     check_embedding_services()
@@ -119,6 +138,7 @@ def main() -> None:
     # embeddingen tar bara EXTRACTED rows. Varje steg skapar statusen som nästa steg letar efter.
     steps = [
         ("truncate", truncate_derived_tables),
+        ("drop chroma", drop_collection),
         ("ingestion", run_ingestion),
         ("extraction", run_extraction),
         ("embedding", run_embedding),
