@@ -14,6 +14,7 @@ from itertools import batched
 
 import chromadb
 import openai
+from chromadb.api import ClientAPI
 from openai import OpenAI
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -151,7 +152,31 @@ def require_embedding_ready(openai_client: OpenAI) -> None:
         )
 
 
-# --- 7: Mini ORKESTRERING ---
+# --- 7: Klienterna(OpenAI + chromaDB API) byggs på ETT ställe ---
+# Ska ha samma form som get_s3_client() i s3_client.py
+# run_embedding()-funktionen och rebuild.py använder exakt samma klient.
+def get_openai_client() -> OpenAI:
+    """
+    Client for Grunden.ai, through the OpenAI package.
+    """
+    return OpenAI(
+        api_key=settings.GRUNDEN_API_KEY,
+        base_url=GRUNDEN_BASE_URL,
+        max_retries=MAX_RETRIES,
+    )
+
+
+def get_chroma_client() -> ClientAPI:
+    """
+    The ChromaDB Client.
+
+    HttpClient() connects already when its created.
+    If Chroma is DOWN, this raises a ValueError before heartbeat() is ever reached.
+    """
+    return chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
+
+
+# --- 8: Mini ORKESTRERING ---
 def run_embedding() -> None:
     """
     Wires things up and ITERATES over every EXTRACTED document then prints a summary.
@@ -159,14 +184,8 @@ def run_embedding() -> None:
     without needing a complete rewrite.
     """
     engine = create_engine(settings.database_url)
-    openai_client = OpenAI(
-        api_key=settings.GRUNDEN_API_KEY,
-        base_url=GRUNDEN_BASE_URL,
-        max_retries=MAX_RETRIES,
-    )
-    chroma_client = chromadb.HttpClient(
-        host=settings.CHROMA_HOST, port=settings.CHROMA_PORT
-    )
+    openai_client = get_openai_client()
+    chroma_client = get_chroma_client()
     # Kolla om ChromaDB är uppe, kolla om Grunden.ai svarar rätt.
     # FAILA HÖGT innan något dokument rörs.
     chroma_client.heartbeat()

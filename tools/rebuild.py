@@ -7,7 +7,7 @@
 # Kommentarer: Svenska
 #
 # Ordningen scriptet körs med är:
-# Kontrollera, fråga, töm, ingest, extract.
+# Kontrollera, fråga, töm(truncate), töm(drop collection - chroma), ingest, extract och embed.
 # Körs med: uv run python tools/rebuild.py
 
 import time
@@ -16,6 +16,13 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import create_engine, text
 
 from kms.config import settings
+from kms.embedding.embed import (
+    COLLECTION_NAME,
+    get_chroma_client,
+    get_openai_client,
+    require_embedding_ready,
+    run_embedding,
+)
 from kms.extraction.extract import run_extraction
 from kms.ingestion.ingest import run_ingestion
 from kms.storage.s3_client import get_s3_client
@@ -45,7 +52,23 @@ def check_localstack() -> None:
         ) from None
 
 
-# ===== 2: Ja eller nej frågan =====
+# ===== 2: Kontroll för att chroma + grunden client är uppe och nåbara innan något annat =====
+def check_embedding_services() -> None:
+    """
+    Stops a run before anything is truncated IF Chroma OR Grunden.ai is unreachable.
+
+    The same checks the run_embedding()-function makes itself.
+    A full rebuild runs them twice using only one tiny extra call.
+    This way, run_embedding()-function still works on its own.
+    """
+    # Chroma - Klienten ansluter redan när den skapas.
+    # heartbeat() är inbyggd metod i Chroma och gör kontrollen synlig i själva koden här.
+    get_chroma_client().heartbeat()
+    # Grunden - Rätt nyckel, rätt modell, rätt dimension. Ett anrop med endast en text.
+    require_embedding_ready(get_openai_client())
+
+
+# ===== 3: Ja eller nej frågan =====
 def confirm_rebuild() -> bool:
     """
     Shows what is about to be truncated and THEN asks.
@@ -59,12 +82,15 @@ def confirm_rebuild() -> bool:
     print(f" Database: {settings.DB_NAME} @ {settings.DB_HOST}:{settings.DB_PORT}")
     print(f" Tables:   {', '.join(DERIVED_TABLES)}")
     print(f" Bucket:   {settings.S3_BUCKET_NAME} @ {settings.AWS_ENDPOINT_URL}")
+    print(
+        f" Vectors:  {COLLECTION_NAME} @ {settings.CHROMA_HOST}:{settings.CHROMA_PORT}"
+    )
     answer = input("Type 'yes' to continue: ")
     # Exakt 'yes'. Ett slarvigt 'y' eller en Enter ska inte räcka för att tömma något.
     return answer.strip().lower() == "yes"
 
 
-# ===== 3: Töm det ursprungliga =====
+# ===== 4: Töm det ursprungliga =====
 def truncate_derived_tables() -> None:
     """
     Empties the derived tables in ONE statement.
@@ -84,20 +110,38 @@ def truncate_derived_tables() -> None:
     engine.dispose()
 
 
-# ===== 4: Orkestrering =====
+# ===== 5: Töm vectors, likt truncate_derived_tables() funktionen fast för vektorer =====
+def drop_collection() -> None:
+    """
+    Deletes the ChromaDB collection. To ensure vectors for removed files aren't kept.
+
+    run_embedding() creates it again with the correct settings (cosine and no embedding function),
+    this way the settings live in ONE place and ONE place only: embed.py script.
+    """
+    client = get_chroma_client()
+    # fungerar likt DROP TABLE IF EXISTS.
+    # Existerar data? Töm. Existerar ingen data? Finns inget att tömma.
+    if COLLECTION_NAME in [collection.name for collection in client.list_collections()]:
+        client.delete_collection(COLLECTION_NAME)
+
+
+# ===== 6: Orkestrering =====
 def main() -> None:
     check_localstack()
+    check_embedding_services()
 
     if not confirm_rebuild():
         print("Aborted. NOTHING was changed.")
         return
 
     # Ordningen är låst: extraktionen arbetar bara på PENDING rows.
-    # och dom skapas av ingestion. MVP v3 läggs embedding till som en rad här.
+    # embeddingen tar bara EXTRACTED rows. Varje steg skapar statusen som nästa steg letar efter.
     steps = [
         ("truncate", truncate_derived_tables),
+        ("drop chroma", drop_collection),
         ("ingestion", run_ingestion),
         ("extraction", run_extraction),
+        ("embedding", run_embedding),
     ]
 
     # Klockan startar EFTER frågan, väntan på ett svar ska inte räknas in i tiden.
