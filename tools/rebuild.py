@@ -7,7 +7,7 @@
 # Kommentarer: Svenska
 #
 # Ordningen scriptet körs med är:
-# Kontrollera, fråga, töm, ingest, extract.
+# Kontrollera, fråga, töm, ingest, extract och embed.
 # Körs med: uv run python tools/rebuild.py
 
 import time
@@ -16,7 +16,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import create_engine, text
 
 from kms.config import settings
-from kms.embedding.embed import run_embedding
+from kms.embedding.embed import (
+    get_chroma_client,
+    get_openai_client,
+    require_embedding_ready,
+    run_embedding,
+)
 from kms.extraction.extract import run_extraction
 from kms.ingestion.ingest import run_ingestion
 from kms.storage.s3_client import get_s3_client
@@ -46,7 +51,23 @@ def check_localstack() -> None:
         ) from None
 
 
-# ===== 2: Ja eller nej frågan =====
+# ===== 2: Kontroll för att chroma + grunden client är uppe och nåbara innan något annat =====
+def check_embedding_services() -> None:
+    """
+    Stops a run before anything is truncated IF Chroma OR Grunden.ai is unreachable.
+
+    The same checks the run_embedding()-function makes itself.
+    A full rebuild runs them twice using only one tiny extra call.
+    This way, run_embedding()-function still works on its own.
+    """
+    # Chroma - Klienten ansluter redan när den skapas.
+    # heartbeat() är inbyggd metod i Chroma och gör kontrollen synlig i själva koden här.
+    get_chroma_client().heartbeat()
+    # Grunden - Rätt nyckel, rätt modell, rätt dimension. Ett anrop med endast en text.
+    require_embedding_ready(get_openai_client())
+
+
+# ===== 3: Ja eller nej frågan =====
 def confirm_rebuild() -> bool:
     """
     Shows what is about to be truncated and THEN asks.
@@ -65,7 +86,7 @@ def confirm_rebuild() -> bool:
     return answer.strip().lower() == "yes"
 
 
-# ===== 3: Töm det ursprungliga =====
+# ===== 4: Töm det ursprungliga =====
 def truncate_derived_tables() -> None:
     """
     Empties the derived tables in ONE statement.
@@ -85,9 +106,10 @@ def truncate_derived_tables() -> None:
     engine.dispose()
 
 
-# ===== 4: Orkestrering =====
+# ===== 5: Orkestrering =====
 def main() -> None:
     check_localstack()
+    check_embedding_services()
 
     if not confirm_rebuild():
         print("Aborted. NOTHING was changed.")
