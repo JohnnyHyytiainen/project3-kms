@@ -170,7 +170,7 @@ def get_chroma_client() -> ClientAPI:
     """
     The ChromaDB Client.
 
-    HttpClient() conects already when its created.
+    HttpClient() connects already when its created.
     If Chroma is DOWN, this raises a ValueError before heartbeat() is ever reached.
     """
     return chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
