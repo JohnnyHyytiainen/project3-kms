@@ -4,11 +4,11 @@
 #
 # Knyter ihop mina filer (Agerar orkestrator)
 # course_mapping.py - Vilken kurs en fil hör till
-# s3_client.py hur en fil laddas upp
+# hashing.py - Innehållets identitet, delas med extraction.
 # db/models.py, vad som sparas i PostgreSQL
 # if __name__.... samma kod fungerar som vanliga script nu och som AIRFLOW task i MVP  V5
 
-import hashlib
+
 import enum
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 # Import av mina dictionary mappings repots funktioner
 from kms.config import settings
 from kms.db.models import Course, Document, DocumentStatus, SourceFile
+from kms.hashing import compute_file_hash
 from kms.ingestion.course_mapping import (
     get_course_tag,
     get_mirror_course_tag,
@@ -77,7 +78,7 @@ def walk_source_files(repos_root: Path) -> Iterator[Path]:
     uses 'yield' to save RAM.
 
     This generator yields one file at a time, keeping nothing in memory other than its current position in the process.
-    It applies the same 'stream, dont load everything concept as compute_file_hash below,
+    It applies the same 'stream, dont load everything concept as compute_file_hash in hashing.py,
     but at the file level rather than the byte level, which becomes relevant the day repos_for_data grows in size.
 
     The .git exclusion uses the exact same logic already demonstrated in counting_script.py reused, not reinvented.
@@ -175,28 +176,8 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
     )
 
 
-# 5) HASH FUNKTION.
-# Läser varje fil i bits om 8kb för att spara på RAM och skapar mitt "fingeravtryck" för varje fil.
-# Skapar unik SHA-256bit hash. Innehållet blir filens identitet
-def compute_file_hash(file_path: Path) -> str:
-    """
-    SHA-256 hash of files CONTENT (Not the filename or filepath).
-
-    Function reads the file in 8192 byte chunks rather than loading the
-    ENTIRE file into memory using .read_bytes(). This makes no
-    noticeable difference for small .md files but would
-    matter significantly if a PDF were 500 MB. A RAM cost I dont want
-    for something as simple as a fingerprint.
-
-    Does NOT catch errors here, exceptions like PermissionError are allowed to propagate by design
-    the one using this function decides how to handle a read error,
-    not the function itself, which is intended solely for hashing.
-    """
-    hasher = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+# 5) HASH FUNKTION - flyttad till kms/hashing.py
+# Delas med extraction som kontrollerar filen på disk mot file_hash innan den läses
 
 
 # 6a) Minnet, tre uppslagningar som hämtas EN gång per körning (undviker N+1 problem)

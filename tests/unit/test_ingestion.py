@@ -5,13 +5,12 @@
 # Testerna är uppdelade i två delar
 #
 # Del 1: Rena funktioner + lokalt I/O filsystem (INGEN S3 INGEN POSTGRES, meningen är att det ska gå FORT)
-# Testar: is_supported_file, walk_source_files, build_file_record, compute_file_hash funktionerna
+# Testar: is_supported_file, walk_source_files, build_file_record (compute_file_hash: test_hashing.py)
 #
 # Del 2: Minnet (load_known_documents, get_or_create_course_id) och ingest_one_file. SQLite + MagicMock
 
 
 from pathlib import Path
-import hashlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -25,7 +24,6 @@ from kms.ingestion.ingest import (
     DiscoveredFile,
     IngestOutcome,
     build_file_record,
-    compute_file_hash,
     get_or_create_course_id,
     ingest_one_file,
     is_supported_file,
@@ -192,34 +190,6 @@ def test_build_file_record_raises_on_unknown_repo(tmp_path):
 
     with pytest.raises(KeyError):
         build_file_record(file_path, tmp_path)
-
-
-# ===== compute_file_hash =====
-# Tester för att kolla hashing logiken
-# utf-8 encoding EXPLICIT för att write_text() inte ska bero på lokalt OS.
-# Samma windows-Linux problem som .as_posix() redan löser för S3-keys
-def test_compute_file_hash_matches_manual_sha256(tmp_path):
-    file_path = tmp_path / "known.md"
-    content = "known content for hash tests"
-    file_path.write_text(content, encoding="utf-8")
-
-    expected = hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-    assert compute_file_hash(file_path) == expected
-
-
-# OSError ska spridas vidare, funktionen fångar det INTE av design
-def test_compute_file_hash_raises_when_file_missing(tmp_path):
-    missing = tmp_path / "finns_inte.md"
-
-    with pytest.raises(OSError):
-        compute_file_hash(missing)
-
-
-# ========== DEL 2A ==========
-#
-# ===== Minnet: load_known_documents + get_or_create_course_id =====
-# Stateful test, SQLite in-memory ersätter PostgreSQL databas
 
 
 @pytest.fixture
