@@ -42,8 +42,8 @@ class FailureReason(str, enum.Enum):
     and no one can later tell "never happens" apart from "the code that sets it was never written"
     """
 
-    # Objektet finns inte i bucket, Postgres och S3 är INTE I SYNK.
-    # Åtgärd är: En ny ingestion
+    # Source file finns inte på disk där source_files pekar mot, kursmaterialet har ändrats
+    # sedan ingestion. Kör full ombyggnad med tools/rebuild.py scriptet.
     SOURCE_MISSING = "source_missing"
 
     # Filen finns men går ej att öppna eller tolka, dvs den är:
