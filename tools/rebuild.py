@@ -7,7 +7,8 @@
 # Kommentarer: Svenska
 #
 # Ordningen scriptet körs med är:
-# Kontrollera, fråga, töm(truncate), töm(drop collection - chroma), ingest, extract och embed.
+# Kontrollera, fråga, töm(truncate), töm(drop collection - chroma), ingest, extract och embed,
+# och till sist stäm av(reconcile). Reconciliation steget LÄSER bara, den rättar ingenting utan skriker endast vid fel.
 # Körs med: uv run python tools/rebuild.py
 
 import time
@@ -23,6 +24,7 @@ from kms.embedding.embed import (
     require_embedding_ready,
     run_embedding,
 )
+from kms.embedding.reconcile import run_reconciliation
 from kms.extraction.extract import run_extraction
 from kms.ingestion.ingest import run_ingestion
 from kms.storage.s3_client import get_s3_client
@@ -142,6 +144,7 @@ def main() -> None:
         ("ingestion", run_ingestion),
         ("extraction", run_extraction),
         ("embedding", run_embedding),
+        ("reconcile", run_reconciliation),
     ]
 
     # Klockan startar EFTER frågan, väntan på ett svar ska inte räknas in i tiden.
