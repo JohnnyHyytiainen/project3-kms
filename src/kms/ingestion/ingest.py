@@ -15,9 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from collections import Counter
 
-# Boto3
-from botocore.exceptions import ClientError
-
 # SQLAlchemy - ORM
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError
@@ -32,7 +29,6 @@ from kms.ingestion.course_mapping import (
     get_mirror_course_tag,
     get_transcript_course_tag,
 )
-from kms.storage.s3_client import ensure_bucket_exists, get_s3_client, upload_file
 
 # 1a) Filtret, Endast dom här filerna
 # Endast dom här filerna är välkommna i mitt data lakehouse JUST NU
@@ -46,9 +42,9 @@ class IngestOutcome(str, enum.Enum):
     """
     Result of processing ONE file in ONE run.
 
-    NEW_DOCUMENT: content thats never been seen before, uploaded to S3, new row in documents.
+    NEW_DOCUMENT: content thats never been seen before, new row in documents.
     NEW_COPY: Known content found at a new place, new row in source_files ONLY.
-    SKIPPED: Nothing written, unreadable file, S3 error or already registered.
+    SKIPPED: Nothing written, unreadable file or already registered.
     """
 
     NEW_DOCUMENT = "new_document"
@@ -98,7 +94,7 @@ def walk_source_files(repos_root: Path) -> Iterator[Path]:
 @dataclass
 class DiscoveredFile:
     """
-    Everything I know about a file before it is hashed or uploaded.
+    Everything I know about a file before it is hashed.
     (A files metadata)
 
     A data class instead of a tuple, field names are explicit, so there is
@@ -115,7 +111,7 @@ class DiscoveredFile:
 
     local_path: Path  # Lokala pathen på min dator
     filename: str  # Filnamnet
-    s3_key: str  # Min S3 KEY
+    s3_key: str  # Kvar för documents.s3_key, tas bort med migrationen i steg 3
     course_tag: str  # Kursen för DETTA exemplar, blir en rad i courses via source_files
     source_type: str  # "pdf" | "markdown" | "transcript"
     source_path: str  # {repo}/{sökväg i repot}, exemplarets unika plats på disk
@@ -251,19 +247,17 @@ def ingest_one_file(
     known_documents: dict[str, int],
     known_paths: dict[str, int],
     course_ids: dict[str, int],
-    s3_client,
-    bucket_name: str,
     session: Session,
 ) -> IngestOutcome:
     """
     Attempting to ingest ONE file.
 
-    NEW_DOCUMENT: new content, uploaded to S3, new row in documents AND source_files.
+    NEW_DOCUMENT: new content, new row in documents AND source_files.
     NEW_COPY: known content at a new path, new row in source_files only.
-    SKIPPED: unreadable file, S3 error, or path already registered with same content.
+    SKIPPED: unreadable file, or path already registered with same content.
 
     Raises RuntimeError when a registered path has gotten NEW content.
-    Checked BEFORE any upload, so S3 and Postgres can never drift apart.
+    Checked BEFORE anything is written, so a changed file never reaches Postgres.
     """
     # === FELTYP 1: Lokalt LÄSFEL ===
     try:
@@ -272,13 +266,13 @@ def ingest_one_file(
         print(f"[SKIPPING] could not read: {record.local_path}: {e}")
         return IngestOutcome.SKIPPED
 
-    # === Sökvägen redan registrerad? FÖRE all nätverks-I/O ===
+    # === Sökvägen redan registrerad? FÖRE all skrivning ===
     if record.source_path in known_paths:
         # Samma innehåll som förra körningen, redan registrerad, inget att göra
         if known_documents.get(file_hash) == known_paths[record.source_path]:
             return IngestOutcome.SKIPPED
-        # === FELTYP 3: Innehållskonflikt (Fail Loud) ===
-        # Samma sökväg, NYTT innehåll. Upptäcks nu FÖRE uppladdning till S3
+        # === FELTYP 2: Innehållskonflikt (Fail Loud) ===
+        # Samma sökväg, NYTT innehåll. Upptäcks FÖRE något skrivs till Postgres
         raise RuntimeError(
             f"source_path '{record.source_path}' is already registered with DIFFERENT "
             f"content than what was just calculated. Same path, changed content - "
@@ -286,7 +280,7 @@ def ingest_one_file(
         )
 
     # === Känt innehåll på en NY plats = nytt exemplar ===
-    # Ingen uppladdning, innehållet ligger redan i S3 exakt en gång
+    # Innehållet finns redan som en rad i documents, bara exemplaret är nytt
     if file_hash in known_documents:
         document_id = known_documents[file_hash]
         course_id = get_or_create_course_id(record.course_tag, course_ids, session)
@@ -303,15 +297,7 @@ def ingest_one_file(
         known_paths[record.source_path] = document_id
         return IngestOutcome.NEW_COPY
 
-    # === FELTYP 2: Nätverksfel mot S3 ===
-    try:
-        upload_file(s3_client, str(record.local_path), bucket_name, record.s3_key)
-    except ClientError as e:
-        print(f"[SKIPPING] S3-upload failed because: {record.s3_key}: {e}")
-        return IngestOutcome.SKIPPED  # Inget skrivs, nästa körning försöker igen
-
     # === DATABAS: nytt innehåll = ny rad i documents + dess första exemplar ===
-    # Kursen hämtas EFTER uppladdningen, misslyckas S3 skapas ingen kurs i onödan
     course_id = get_or_create_course_id(record.course_tag, course_ids, session)
     document = Document(
         s3_key=record.s3_key,
@@ -341,9 +327,6 @@ def run_ingestion() -> None:
     """
     # Startar uppkopplingar
     engine = create_engine(settings.database_url)
-    s3_client = get_s3_client()
-    # Fail LOUD: Krasch om LocalStack är dött
-    ensure_bucket_exists(s3_client, settings.S3_BUCKET_NAME)
 
     # En räknare per utfall. Counter ger 0 för ett utfall som aldrig inträffat
     outcomes: Counter[IngestOutcome] = Counter()
@@ -363,8 +346,6 @@ def run_ingestion() -> None:
                 known_documents,
                 known_paths,
                 course_ids,
-                s3_client,
-                settings.S3_BUCKET_NAME,
                 session,
             )
             outcomes[outcome] += 1

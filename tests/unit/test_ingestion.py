@@ -4,19 +4,17 @@
 
 # Testerna är uppdelade i två delar
 #
-# Del 1: Rena funktioner + lokalt I/O filsystem (INGEN S3 INGEN POSTGRES, meningen är att det ska gå FORT)
+# Del 1: Rena funktioner + lokalt I/O filsystem (INGEN POSTGRES, meningen är att det ska gå FORT)
 # Testar: is_supported_file, walk_source_files, build_file_record (compute_file_hash: test_hashing.py)
 #
-# Del 2A: Minnet (load_known_documents, get_or_create_course_id) och ingest_one_file. SQLite + MagicMock
+# Del 2A: Minnet (load_known_documents, get_or_create_course_id). SQLite
 #
 # Del 2B: Ingest_one_file
 
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
-from botocore.exceptions import ClientError
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
@@ -236,18 +234,9 @@ def test_get_or_create_course_id_creates_once(session):
 
 
 # ========== DEL 2B ==========
-# 8x scenarior, MagicMock ersätter min S3 client
+# 7x scenarior, SQLite ersätter Postgres
 #
 # ===== ingest_one_file =====
-
-
-@pytest.fixture
-def s3_client():
-    """
-    Standard mock will 'succeed' automatically on
-    ALL method/function calls for now.
-    """
-    return MagicMock()
 
 
 # Privat funktion - FAAFO(F around and find out)
@@ -280,7 +269,6 @@ def _make_record(
 def _ingest(
     record,
     session,
-    s3_client,
     known_documents=None,
     known_paths=None,
     course_ids=None,
@@ -296,22 +284,19 @@ def _ingest(
         {} if known_documents is None else known_documents,
         {} if known_paths is None else known_paths,
         {} if course_ids is None else course_ids,
-        s3_client,
-        "test-bucket",
         session,
     )
 
 
-# Happy path: nytt innehåll = uppladdning + documents + source_files + courses
-def test_happy_path(tmp_path, session, s3_client):
+# Happy path: nytt innehåll = documents + source_files + courses
+def test_happy_path(tmp_path, session):
     record = _make_record(tmp_path)
     known_documents: dict[str, int] = {}
     known_paths: dict[str, int] = {}
 
-    result = _ingest(record, session, s3_client, known_documents, known_paths)
+    result = _ingest(record, session, known_documents, known_paths)
 
     assert result == IngestOutcome.NEW_DOCUMENT
-    s3_client.upload_file.assert_called_once()
     saved = session.execute(select(Document)).scalar_one()
     assert saved.s3_key == record.s3_key
     assert saved.status == DocumentStatus.PENDING
@@ -326,20 +311,17 @@ def test_happy_path(tmp_path, session, s3_client):
 
 # Samma innehåll på två platser = ETT dokument, TVÅ exemplar.
 # Samma fall som transkriptet i lektion 16 och 17 i databricks-kursen.
-def test_known_content_at_new_path_becomes_copy(tmp_path, session, s3_client):
+def test_known_content_at_new_path_becomes_copy(tmp_path, session):
     known_documents: dict[str, int] = {}
     known_paths: dict[str, int] = {}
     course_ids: dict[str, int] = {}
     first = _make_record(tmp_path, content="shared lesson", folder="lesson_16")
     second = _make_record(tmp_path, content="shared lesson", folder="lesson_17")
 
-    _ingest(first, session, s3_client, known_documents, known_paths, course_ids)
-    result = _ingest(
-        second, session, s3_client, known_documents, known_paths, course_ids
-    )
+    _ingest(first, session, known_documents, known_paths, course_ids)
+    result = _ingest(second, session, known_documents, known_paths, course_ids)
 
     assert result == IngestOutcome.NEW_COPY
-    s3_client.upload_file.assert_called_once()  # Innehållet laddas upp EN gång
     document = session.execute(select(Document)).scalar_one()
     copies = session.execute(select(SourceFile)).scalars().all()
     assert {c.source_path for c in copies} == {first.source_path, second.source_path}
@@ -347,39 +329,41 @@ def test_known_content_at_new_path_becomes_copy(tmp_path, session, s3_client):
 
 
 # Omkörning: sökvägen redan registrerad med SAMMA innehåll, ingenting skrivs
-def test_already_registered_path_is_skipped(tmp_path, session, s3_client):
+def test_already_registered_path_is_skipped(tmp_path, session):
     known_documents: dict[str, int] = {}
     known_paths: dict[str, int] = {}
     record = _make_record(tmp_path)
 
-    _ingest(record, session, s3_client, known_documents, known_paths)
-    result = _ingest(record, session, s3_client, known_documents, known_paths)
+    _ingest(record, session, known_documents, known_paths)
+    result = _ingest(record, session, known_documents, known_paths)
 
     assert result == IngestOutcome.SKIPPED
-    s3_client.upload_file.assert_called_once()
     assert len(session.execute(select(SourceFile)).scalars().all()) == 1
 
 
-# Samma sökväg med NYTT innehåll ska faila HÖGT, och FÖRE uppladdningen.
-# upload_file anropad EN gång = bara originalet, den ändrade filen nådde aldrig S3
-def test_changed_content_at_known_path_raises_before_upload(
-    tmp_path, session, s3_client
-):
+# Samma sökväg med NYTT innehåll ska faila HÖGT, och FÖRE något skrivs.
+# match= skiljer kontrollen från skyddsnätet i commit_or_raise. Båda kastar
+# RuntimeError, men bara kontrollen säger DIFFERENT content
+def test_changed_content_at_known_path_raises(tmp_path, session):
     known_documents: dict[str, int] = {}
     known_paths: dict[str, int] = {}
+    course_ids: dict[str, int] = {}  # Delat mellan anropen, som i en riktig körning
     original = _make_record(tmp_path, content="version 1")
-    _ingest(original, session, s3_client, known_documents, known_paths)
+    _ingest(original, session, known_documents, known_paths, course_ids)
+    original_hash = session.execute(select(Document.file_hash)).scalar_one()
 
     changed = _make_record(tmp_path, content="version 2")  # Samma sökväg, nytt innehåll
-    with pytest.raises(RuntimeError):
-        _ingest(changed, session, s3_client, known_documents, known_paths)
+    with pytest.raises(RuntimeError, match="DIFFERENT content"):
+        _ingest(changed, session, known_documents, known_paths, course_ids)
 
-    s3_client.upload_file.assert_called_once()
+    # Postgres har bara originalet kvar
+    hashes = session.execute(select(Document.file_hash)).scalars().all()
+    assert hashes == [original_hash]
 
 
 # Skyddsnätet: sökvägen finns i databasen men INTE i minnet (osynkat).
 # Postgres UNIQUE fångar det, rollback() ska lämna sessionen användbar för nästa fil.
-def test_integrity_error_crashes_and_session_still_usable(tmp_path, session, s3_client):
+def test_integrity_error_crashes_and_session_still_usable(tmp_path, session):
     existing = Document(
         s3_key="python/python_course/old.md",
         filename="old.md",
@@ -401,7 +385,7 @@ def test_integrity_error_crashes_and_session_still_usable(tmp_path, session, s3_
     record = _make_record(tmp_path, content="helt nytt innehall")  # Samma source_path
     # Kursen FINNS i minnet, bara sökvägen saknas. Det är den luckan som testas
     with pytest.raises(RuntimeError):
-        _ingest(record, session, s3_client, course_ids={"python": course.id})
+        _ingest(record, session, course_ids={"python": course.id})
 
     fresh = Document(
         s3_key="python/python_course/annan_fil.md",
@@ -415,7 +399,7 @@ def test_integrity_error_crashes_and_session_still_usable(tmp_path, session, s3_
 
 
 # test för oläsbara filer som skippas pga pathing issues eller andra issues
-def test_unreadable_file_skips(tmp_path, session, s3_client):
+def test_unreadable_file_skips(tmp_path, session):
     missing_path = tmp_path / "finns_inte.md"
     record = DiscoveredFile(
         local_path=missing_path,
@@ -426,31 +410,16 @@ def test_unreadable_file_skips(tmp_path, session, s3_client):
         source_path="python_course/finns_inte.md",
     )
 
-    result = _ingest(record, session, s3_client)
-
-    assert result == IngestOutcome.SKIPPED
-    s3_client.upload_file.assert_not_called()
-
-
-# S3 nere: ingenting i Postgres, inte ens kursen (den hämtas EFTER uppladdningen)
-def test_s3_upload_failure_skips(tmp_path, session, s3_client):
-    record = _make_record(tmp_path)
-    s3_client.upload_file.side_effect = ClientError(
-        error_response={"Error": {"Code": "500", "Message": "simulerat"}},
-        operation_name="upload_file",
-    )
-
-    result = _ingest(record, session, s3_client)
+    result = _ingest(record, session)
 
     assert result == IngestOutcome.SKIPPED
     assert session.execute(select(Document)).first() is None
-    assert session.execute(select(Course)).first() is None
 
 
 # test för känd brist. except IntegrityError fångar INTE
 # OperationalError (siblings, inte parent/child). Test för att bevisa att gapet finns kvar.
 # Ska faila av sig självt den dagen min kod fixar det.
-def test_operational_error_is_not_caught(tmp_path, session, s3_client, monkeypatch):
+def test_operational_error_is_not_caught(tmp_path, session, monkeypatch):
     record = _make_record(tmp_path)
 
     def raise_operational_error(*args, **kwargs):
@@ -461,4 +430,4 @@ def test_operational_error_is_not_caught(tmp_path, session, s3_client, monkeypat
     monkeypatch.setattr(session, "commit", raise_operational_error)
 
     with pytest.raises(OperationalError):
-        _ingest(record, session, s3_client)
+        _ingest(record, session)
