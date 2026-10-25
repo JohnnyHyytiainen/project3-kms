@@ -57,9 +57,15 @@ def extract_pages(pdf_path: Path) -> list[ExtractedPage]:
     later steps will need ALL pages of ONE document available at once to compare across pages,
     not a single pass stream.
 
-    Wont catch exceptions here.
+    A file PyMuPDF cannot open as a PDF raises PdfExtractionError.
+    Nothing else will be caught here.
     """
-    with fitz.open(pdf_path) as doc:
+    try:
+        doc = fitz.open(pdf_path)
+    except fitz.FileDataError as e:
+        raise PdfExtractionError(f"Cannot open {pdf_path.name} as a PDF: {e}") from e
+
+    with doc:
         pages = [
             ExtractedPage(page_number=i + 1, text=page.get_text("text"))
             for i, page in enumerate(doc)
