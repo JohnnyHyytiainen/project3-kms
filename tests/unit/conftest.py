@@ -1,6 +1,6 @@
 # conftest.py - Körs automatiskt av Pytest INNAN någon testfil i mappen tests/unit/ importeras.
 # Ligger här och INTE i tests/ så en framtida tests/integration/-folder INTE ska påverkas.
-# Den ska använda RIKTIGA .env värden mot riktig LocalStack/Postgres. Unit lagret ska inte behöva det alls.
+# Den ska använda RIKTIGA .env värden mot riktig Postgres. Unit lagret ska inte behöva det alls.
 
 # .env är redan .gitignored och Ci pipens checkout saknar den helt.
 # Utan den här kraschar VARJE testfil vid import INNAN ett enda test hinner köras,
@@ -26,9 +26,6 @@ _UNIT_TEST_DEFAULTS = {
     "CHROMA_HOST": "localhost",
     "CHROMA_PORT": "8006",
     "GRUNDEN_API_KEY": "test",
-    "AWS_ACCESS_KEY_ID": "test",
-    "AWS_SECRET_ACCESS_KEY": "test",
-    "AWS_ENDPOINT_URL": "http://localhost:4566",
 }
 
 # setdefault - RÖR aldrig en variabel som REDAN FINNS.
