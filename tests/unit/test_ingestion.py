@@ -7,7 +7,9 @@
 # Del 1: Rena funktioner + lokalt I/O filsystem (INGEN S3 INGEN POSTGRES, meningen är att det ska gå FORT)
 # Testar: is_supported_file, walk_source_files, build_file_record (compute_file_hash: test_hashing.py)
 #
-# Del 2: Minnet (load_known_documents, get_or_create_course_id) och ingest_one_file. SQLite + MagicMock
+# Del 2A: Minnet (load_known_documents, get_or_create_course_id) och ingest_one_file. SQLite + MagicMock
+#
+# Del 2B: Ingest_one_file
 
 
 from pathlib import Path
@@ -15,11 +17,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from botocore.exceptions import ClientError
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session
 
-from kms.db.models import Base, Course, Document, DocumentStatus, SourceFile
+from kms.db.models import Course, Document, DocumentStatus, SourceFile
 from kms.ingestion.ingest import (
     DiscoveredFile,
     IngestOutcome,
@@ -192,28 +193,10 @@ def test_build_file_record_raises_on_unknown_repo(tmp_path):
         build_file_record(file_path, tmp_path)
 
 
-@pytest.fixture
-def session():
-    """
-    A brand new empty SQLite in-memory DB per test.
-    Function scoped - Pytest-default.
-
-    Each test gets its own instance,
-    zero risk for a test row from a test to leak into the next test.
-    """
-    engine = create_engine("sqlite:///:memory:")
-
-    # Bara tabellerna ingestionen skriver till. chunks har JSONB som SQLite inte kan rendera,
-    # därför byggs INTE hela Base.metadata. courses och source_files saknar JSONB och går bra.
-    Base.metadata.create_all(
-        engine,
-        tables=[Document.__table__, Course.__table__, SourceFile.__table__],
-    )
-
-    with Session(engine) as session:
-        yield session  # testet körs här
-
-    engine.dispose()  # körs även om testet failar (teardown)
+# ========== DEL 2A ==========
+#
+# ===== Minnet: load_known_documents + get_or_create_course_id =====
+# Stateful test, SQLite in-memory ersätter PostgreSQL databas
 
 
 def test_load_known_documents_empty_db(session):

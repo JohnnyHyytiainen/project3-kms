@@ -20,15 +20,26 @@
 # D2: Sidmåtten räknar tomma och korta sidor, gränsen ligger på MIN_CHUNK_SIZE
 # E2: En sida med bara blanksteg räknas som tom, inte kort
 # F2: "Kort" betyder exakt "chunkern kastade den" - måtten och chunkern får inte glida isär
+#
+# Del 3: Failure paths(felvägarna) i extract_one_document(), filen läses nu från disk och ska kontrolleras mot file_hash
+# A3: Filen saknas på DISK -> FAILED med SOURCE_MISSING och det är committat.
+# B3: Filen har ändrats sen ingestion -> RuntimeError, dokumentet ska stå kvar med status PENDING
+# C3: Filen GÅR inte att läsa (transient error) -> SKIPPED, dokumentet ska stå kvar med status PENDING
 
+import hashlib
 import uuid
 from pathlib import Path
 
+import pytest
+from sqlalchemy.orm import Session
+
+from kms.db.models import Course, Document, DocumentStatus, FailureReason, SourceFile
 from kms.extraction.chunker import MIN_CHUNK_SIZE
 from kms.extraction.chunker import chunk_document
 from kms.extraction.chunker import Section
 from kms.extraction.extract import build_sections_from_markdown
 from kms.extraction.extract import make_vector_id, measure_pages
+from kms.extraction.extract import ExtractionOutcome, extract_one_document
 
 
 # ====== Del 1: Tester för build_sections_from_markdown() logik ======
@@ -197,3 +208,93 @@ def test_short_page_is_exactly_what_chunker_discards():
     assert chunk_document([short]) == []  # kort enligt måttet = kastad av chunkern
     assert measure_pages([kept]) == (1, 0, 0)
     assert len(chunk_document([kept])) == 1  # på gränsen = behållen
+
+
+# ====== DEL 3: Failure paths(felvägarna) i extract_one_document() ======
+# =======================================================================
+#
+# Alla TRE vägarna AVSLUTAS INNAN chunks skrivs. På så vis räcker SQLite-session från conftest.py
+# Filen skrivs och ska hashas som BYTES: write_text() byter \n mot \r\n på Windows,
+# då hade hashen berott på operativsystemet och inte på innehållet (Windows och OS issues...)
+SOURCE_PATH = "python_course/notes.md"
+CONTENT = "# Rubrik\n\nText som ingestion hashade.\n".encode("utf-8")
+
+
+def add_pending_document(session: Session, content: bytes) -> Document:
+    """
+    ONE PENDING markdown document with ONE copy at SOURCE_PATH, committed.
+    Same shape as when ingestion writes it: the document and its first copy in the same commit.
+    file_hash is the hash of content, what ingestion saw.
+    """
+    course = Course(course_tag="python")
+    session.add(course)
+    session.flush()
+    document = Document(
+        s3_key="python/python_course/notes.md",
+        filename="notes.md",
+        source_type="markdown",
+        file_hash=hashlib.sha256(content).hexdigest(),
+        status=DocumentStatus.PENDING,
+    )
+    document.source_files.append(
+        SourceFile(course_id=course.id, source_path=SOURCE_PATH)
+    )
+    session.add(document)
+    session.commit()
+    return document
+
+
+def write_source_file(repos_root: Path, content: bytes) -> None:
+    """
+    Writes the file where the documents copy points, under repos_root.
+    """
+    path = repos_root / SOURCE_PATH
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+
+
+# A3: Filen saknas på disken -> FAILED med SOURCE_MISSING
+# rollback() laddar om dokumentet från databasen, bara det som är COMMITTAT finns kvar
+def test_missing_source_file_marks_document_failed(tmp_path, session):
+    document = add_pending_document(session, CONTENT)
+    # Ingen fil skrivs, exemplaret pekar på en fil som inte finns
+
+    outcome = extract_one_document(document, tmp_path, session)
+
+    assert outcome == ExtractionOutcome.FAILED
+    session.rollback()
+    assert document.status == DocumentStatus.FAILED
+    assert document.failure_reason == FailureReason.SOURCE_MISSING
+
+
+# B3: Filen har ändrats sedan ingestion -> RuntimeError och hela körningen ska stoppas
+def test_changed_source_file_stops_the_run(tmp_path, session):
+    document = add_pending_document(session, CONTENT)
+    write_source_file(tmp_path, CONTENT + b"Rad tillagd efter ingestion.\n")
+
+    with pytest.raises(RuntimeError, match="changed on disk"):
+        extract_one_document(document, tmp_path, session)
+
+    session.rollback()
+    assert document.status == DocumentStatus.PENDING
+
+
+# C3: Fil finns men går INTE att läsa (transient error) -> SKIPPED och står kvar som PENDING
+# PermissionError blir simulerad, chmod hindrar inte läsning på Windows.
+# Patchas där namnet SLÅS UPP (extract.py) inte där funktionen bor (kms.hashing)
+def test_unreadable_source_file_is_skipped(tmp_path, session, monkeypatch):
+    document = add_pending_document(session, CONTENT)
+    write_source_file(tmp_path, CONTENT)
+
+    def raise_permission_error(file_path):
+        raise PermissionError(f"Simulated: {file_path} is locked")
+
+    monkeypatch.setattr(
+        "kms.extraction.extract.compute_file_hash", raise_permission_error
+    )
+
+    outcome = extract_one_document(document, tmp_path, session)
+
+    assert outcome == ExtractionOutcome.SKIPPED
+    session.rollback()
+    assert document.status == DocumentStatus.PENDING

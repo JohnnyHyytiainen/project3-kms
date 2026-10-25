@@ -8,6 +8,15 @@
 
 import os
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+# models.py importerar endast SQLAlchemy och aldrig kms.config, därför är importen safe här
+# Ovanför alla env variabler nedanför
+from kms.db.models import Base, Course, Document, SourceFile
+
+
 _UNIT_TEST_DEFAULTS = {
     "DB_USER": "test",
     "DB_PASSWORD": "test",
@@ -25,3 +34,28 @@ _UNIT_TEST_DEFAULTS = {
 # setdefault - RÖR aldrig en variabel som REDAN FINNS.
 for key, value in _UNIT_TEST_DEFAULTS.items():
     os.environ.setdefault(key, value)
+
+
+# === Delad fixture: Session =====
+@pytest.fixture
+def session():
+    """
+    A brand new empty SQLite in-memory DB per test.
+    Function scoped - Pytest-default.
+
+    Each test gets its own instance,
+    zero risk for a test row from a test to leak into the next test.
+    """
+    engine = create_engine("sqlite:///:memory:")
+
+    # Bara tabellerna ingestionen skriver till. chunks har JSONB som SQLite inte kan rendera,
+    # därför byggs INTE hela Base.metadata. courses och source_files saknar JSONB och går bra.
+    Base.metadata.create_all(
+        engine,
+        tables=[Document.__table__, Course.__table__, SourceFile.__table__],
+    )
+
+    with Session(engine) as session:
+        yield session  # testet körs här
+
+    engine.dispose()  # körs även om testet failar (teardown)
