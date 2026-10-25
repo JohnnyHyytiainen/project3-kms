@@ -14,7 +14,6 @@ from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 
 # extract_pages - Filer som inte går att öppna som PDF
 # PyMuPDF kastar sina egna fel som ärger RuntimeError, pdf_extractor.py scriptet
-# översätter RuntimeError till PdfExtractionError som extract.py scriptet sätter som FAILED
 
 
 # ===== A: Fel bytes i filen =====
