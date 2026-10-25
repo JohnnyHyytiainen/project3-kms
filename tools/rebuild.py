@@ -1,7 +1,5 @@
 # rebuild.py - Bygger om hela lagret ur repos_for_data/
-# Anledningen: S3-bucket och localstack behåller inte data
-# Vid varje avstängning av docker så försvinner datan. Syftet är att
-# kringgå data persistancy issues.
+# Anledningen: ändrat kursmaterial når indexet bara med en full ombyggnad
 #
 # Kod: Engelska
 # Kommentarer: Svenska
@@ -13,7 +11,6 @@
 
 import time
 
-from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import create_engine, text
 
 from kms.config import settings
@@ -27,7 +24,6 @@ from kms.embedding.embed import (
 from kms.embedding.reconcile import run_reconciliation
 from kms.extraction.extract import run_extraction
 from kms.ingestion.ingest import run_ingestion
-from kms.storage.s3_client import get_s3_client
 
 # Endast tables som byggs ur repos_for_data/ folder får stå här
 # users, alembic_versions går inte att bygga om och rörs ALDRIG
@@ -36,25 +32,7 @@ from kms.storage.s3_client import get_s3_client
 DERIVED_TABLES = ("chunks", "source_files", "documents", "courses")
 
 
-# ===== 1: Kontrollera FÖRST innan något annat =====
-def check_localstack() -> None:
-    """
-    Stops the run before anything is truncated if LocalStack is not answering.
-
-    list_buckets() is a read only call. An empty list is a valid answer:
-    LocalStack is up and running but was restarted, which is why this script
-    even exists.
-    """
-    try:
-        get_s3_client().list_buckets()
-    except (BotoCoreError, ClientError) as e:
-        raise RuntimeError(
-            f"LocalStack is not answering at {settings.AWS_ENDPOINT_URL}: {e}. "
-            f"Nothing has been truncated. Start the containers and try to run again."
-        ) from None
-
-
-# ===== 2: Kontroll för att chroma + grunden client är uppe och nåbara innan något annat =====
+# ===== 1: Kontroll för att chroma + grunden client är uppe och nåbara innan något annat =====
 def check_embedding_services() -> None:
     """
     Stops a run before anything is truncated IF Chroma OR Grunden.ai is unreachable.
@@ -70,7 +48,7 @@ def check_embedding_services() -> None:
     require_embedding_ready(get_openai_client())
 
 
-# ===== 3: Ja eller nej frågan =====
+# ===== 2: Ja eller nej frågan =====
 def confirm_rebuild() -> bool:
     """
     Shows what is about to be truncated and THEN asks.
@@ -83,7 +61,6 @@ def confirm_rebuild() -> bool:
     print("This will TRUNCATE and rebuild from repos_for_data/:")
     print(f" Database: {settings.DB_NAME} @ {settings.DB_HOST}:{settings.DB_PORT}")
     print(f" Tables:   {', '.join(DERIVED_TABLES)}")
-    print(f" Bucket:   {settings.S3_BUCKET_NAME} @ {settings.AWS_ENDPOINT_URL}")
     print(
         f" Vectors:  {COLLECTION_NAME} @ {settings.CHROMA_HOST}:{settings.CHROMA_PORT}"
     )
@@ -92,7 +69,7 @@ def confirm_rebuild() -> bool:
     return answer.strip().lower() == "yes"
 
 
-# ===== 4: Töm det ursprungliga =====
+# ===== 3: Töm det ursprungliga =====
 def truncate_derived_tables() -> None:
     """
     Empties the derived tables in ONE statement.
@@ -112,7 +89,7 @@ def truncate_derived_tables() -> None:
     engine.dispose()
 
 
-# ===== 5: Töm vectors, likt truncate_derived_tables() funktionen fast för vektorer =====
+# ===== 4: Töm vectors, likt truncate_derived_tables() funktionen fast för vektorer =====
 def drop_collection() -> None:
     """
     Deletes the ChromaDB collection. To ensure vectors for removed files aren't kept.
@@ -127,9 +104,8 @@ def drop_collection() -> None:
         client.delete_collection(COLLECTION_NAME)
 
 
-# ===== 6: Orkestrering =====
+# ===== 5: Orkestrering =====
 def main() -> None:
-    check_localstack()
     check_embedding_services()
 
     if not confirm_rebuild():
