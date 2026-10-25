@@ -18,19 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-
-  # LocalStack ÄR en emulator - AWS S3 går inte att ladda ner och köra lokalt,
-  # det är en molntjänst. LocalStack låtsas prata S3-API't tillräckligt bra
-  # för utveckling, utan AWS-konto eller kostnad.
-  localstack:
-    image: localstack/localstack:4.4.0 # Pinnad, sista fria community versionen INNAN konto requirements ändrades
-    container_name: kms_localstack
-    environment:
-      - SERVICES=s3
-      - DEBUG=0
-    ports:
-      - "4566:4566" # LocalStack Gateway
-
   # Chroma ÄR vektordatabasen - Egen container så att API't (V4) kan läsa samtidigt som rebuild.py skriver.
   # Samma mönster som Postgres.
   chroma:
