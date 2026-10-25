@@ -111,7 +111,6 @@ class DiscoveredFile:
 
     local_path: Path  # Lokala pathen på min dator
     filename: str  # Filnamnet
-    s3_key: str  # Kvar för documents.s3_key, tas bort med migrationen i steg 3
     course_tag: str  # Kursen för DETTA exemplar, blir en rad i courses via source_files
     source_type: str  # "pdf" | "markdown" | "transcript"
     source_path: str  # {repo}/{sökväg i repot}, exemplarets unika plats på disk
@@ -137,11 +136,10 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
     # Räknar ut vart jag är (t.ex python_course/01_course_structure/README.md)
     relative_to_root = file_path.relative_to(repos_root)
     repo_name = relative_to_root.parts[0]
-    relative_within_repo = file_path.relative_to(repos_root / repo_name)
 
     # Slår upp kursens tag via min explicita mapping (course_mapping.py)
     # Failar HÖGT om den INTE finns.
-    s3_course_segment = get_course_tag(repo_name)
+    repo_course_tag = get_course_tag(repo_name)
 
     # Specialhantering för just YT-transcripts semantiska tag
     # Finkornig, semantiskt korrekt tag PER fil.
@@ -155,17 +153,13 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
             course_tag = get_transcript_course_tag(file_path.name)
         source_type = "transcript"
     else:
-        course_tag = s3_course_segment
+        course_tag = repo_course_tag
         source_type = "pdf" if file_path.suffix.lower() == ".pdf" else "markdown"
-
-    # Bygg S3-key. as_posix() skyddar mot windows issues med backslashes (\)
-    s3_key = f"{s3_course_segment}/{repo_name}/{relative_within_repo.as_posix()}"
 
     # Returnerar min data class
     return DiscoveredFile(
         local_path=file_path,
         filename=file_path.name,
-        s3_key=s3_key,
         course_tag=course_tag,
         source_type=source_type,
         source_path=relative_to_root.as_posix(),
@@ -300,7 +294,6 @@ def ingest_one_file(
     # === DATABAS: nytt innehåll = ny rad i documents + dess första exemplar ===
     course_id = get_or_create_course_id(record.course_tag, course_ids, session)
     document = Document(
-        s3_key=record.s3_key,
         filename=record.filename,
         source_type=record.source_type,
         file_hash=file_hash,

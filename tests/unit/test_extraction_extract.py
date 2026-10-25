@@ -230,7 +230,6 @@ def add_pending_document(session: Session, content: bytes) -> Document:
     session.add(course)
     session.flush()
     document = Document(
-        s3_key="python/python_course/notes.md",
         filename="notes.md",
         source_type="markdown",
         file_hash=hashlib.sha256(content).hexdigest(),

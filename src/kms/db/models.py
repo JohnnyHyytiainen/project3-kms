@@ -67,10 +67,6 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # 1024 = S3's faktiska maxlängd för nycklar
-    # Unik, namespace {course_tag}/{repo}/{path} garanterar det per design
-    # en dubblett vore en bug, inte ett giltigt tillstånd
-    s3_key: Mapped[str] = mapped_column(String(1024), unique=True, index=True)
     filename: Mapped[str] = mapped_column(String(255))
 
     # Sträng, inte enum - beslut 4/5: kod-filtyper (.py/.sql/.ipynb) läggs

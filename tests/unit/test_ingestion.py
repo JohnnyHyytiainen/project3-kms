@@ -9,7 +9,7 @@
 #
 # Del 2A: Minnet (load_known_documents, get_or_create_course_id). SQLite
 #
-# Del 2B: Ingest_one_file
+# Del 2B: ingest_one_file. SQLite
 
 
 from pathlib import Path
@@ -97,7 +97,7 @@ def test_walk_source_files_is_recursive(tmp_path):
 # Testerna verifierar mot samma data som den riktiga koden.
 
 
-# Test för att verifiera att course tag och source typ + s3_key stämmer med verkligheten
+# Test för att verifiera att course tag, source typ och source_path stämmer med verkligheten
 def test_build_file_record_for_normal_repo_markdown(tmp_path):
     repo = tmp_path / "python_course"
     repo.mkdir()
@@ -108,7 +108,6 @@ def test_build_file_record_for_normal_repo_markdown(tmp_path):
 
     assert record.course_tag == "python"
     assert record.source_type == "markdown"
-    assert record.s3_key == "python/python_course/intro.md"
     assert record.source_path == "python_course/intro.md"
 
 
@@ -136,9 +135,7 @@ def test_build_file_record_for_youtube_transcript(tmp_path):
 
     assert record.source_type == "transcript"
     assert record.course_tag == "python"
-    # reproducerar den dokumenterad DUBBEL s3-key från ingest_Script_mvp_v1.md
-    # TODO: se över detta när jag är längre fram i projektet
-    assert record.s3_key == "youtube_transcripts/youtube_transcripts/python intro.md"
+    assert record.source_path == "youtube_transcripts/python intro.md"
 
 
 # test för att se så att spelningen av mirror_transcripts fungerar som tänkt.
@@ -154,13 +151,6 @@ def test_build_file_record_for_mirror_transcript(tmp_path):
 
     assert record.source_type == "transcript"
     assert record.course_tag == "python"
-    # S3-nyckeln ska vara OFÖRÄNDRAD, den bär fortfarande VAR filen ligger
-    expected_key = (
-        "youtube_transcripts/youtube_transcripts/COMPLETE_COURSE_TRANSCRIPTS/"
-        "python_course_DONE/17_pydantic/17_part_1_pydantic.md"
-    )
-    assert record.s3_key == expected_key
-
     # source_path saknar kurssegmentet, den är filens plats på disk, inget annat
     assert record.source_path == (
         "youtube_transcripts/COMPLETE_COURSE_TRANSCRIPTS/"
@@ -204,13 +194,11 @@ def test_load_known_documents_empty_db(session):
 # Minnet ska peka hash -> id, inte bara veta ATT hashen finns
 def test_load_known_documents_maps_hash_to_id(session):
     doc_a = Document(
-        s3_key="python/python_course/a.md",
         filename="a.md",
         source_type="markdown",
         file_hash="hash_a",
     )
     doc_b = Document(
-        s3_key="python/python_course/b.md",
         filename="b.md",
         source_type="markdown",
         file_hash="hash_b",
@@ -258,7 +246,6 @@ def _make_record(
     return DiscoveredFile(
         local_path=file_path,
         filename=filename,
-        s3_key=f"python/{folder}/{filename}",
         course_tag="python",
         source_type="markdown",
         source_path=f"{folder}/{filename}",
@@ -298,7 +285,7 @@ def test_happy_path(tmp_path, session):
 
     assert result == IngestOutcome.NEW_DOCUMENT
     saved = session.execute(select(Document)).scalar_one()
-    assert saved.s3_key == record.s3_key
+    assert saved.filename == record.filename
     assert saved.status == DocumentStatus.PENDING
     copy = session.execute(select(SourceFile)).scalar_one()
     assert copy.document_id == saved.id
@@ -365,7 +352,6 @@ def test_changed_content_at_known_path_raises(tmp_path, session):
 # Postgres UNIQUE fångar det, rollback() ska lämna sessionen användbar för nästa fil.
 def test_integrity_error_crashes_and_session_still_usable(tmp_path, session):
     existing = Document(
-        s3_key="python/python_course/old.md",
         filename="old.md",
         source_type="markdown",
         file_hash="old_hash_placeholder",
@@ -388,7 +374,6 @@ def test_integrity_error_crashes_and_session_still_usable(tmp_path, session):
         _ingest(record, session, course_ids={"python": course.id})
 
     fresh = Document(
-        s3_key="python/python_course/annan_fil.md",
         filename="annan_fil.md",
         source_type="markdown",
         file_hash="ny_hash",
@@ -404,7 +389,6 @@ def test_unreadable_file_skips(tmp_path, session):
     record = DiscoveredFile(
         local_path=missing_path,
         filename="finns_inte.md",
-        s3_key="python/python_course/finns_inte.md",
         course_tag="python",
         source_type="markdown",
         source_path="python_course/finns_inte.md",
