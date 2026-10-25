@@ -42,8 +42,8 @@ class FailureReason(str, enum.Enum):
     and no one can later tell "never happens" apart from "the code that sets it was never written"
     """
 
-    # Objektet finns inte i bucket, Postgres och S3 är INTE I SYNK.
-    # Åtgärd är: En ny ingestion
+    # Source file finns inte på disk där source_files pekar mot, kursmaterialet har ändrats
+    # sedan ingestion. Kör full ombyggnad med tools/rebuild.py scriptet.
     SOURCE_MISSING = "source_missing"
 
     # Filen finns men går ej att öppna eller tolka, dvs den är:
@@ -67,10 +67,6 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # 1024 = S3's faktiska maxlängd för nycklar
-    # Unik, namespace {course_tag}/{repo}/{path} garanterar det per design
-    # en dubblett vore en bug, inte ett giltigt tillstånd
-    s3_key: Mapped[str] = mapped_column(String(1024), unique=True, index=True)
     filename: Mapped[str] = mapped_column(String(255))
 
     # Sträng, inte enum - beslut 4/5: kod-filtyper (.py/.sql/.ipynb) läggs

@@ -4,19 +4,16 @@
 #
 # Knyter ihop mina filer (Agerar orkestrator)
 # course_mapping.py - Vilken kurs en fil hör till
-# s3_client.py hur en fil laddas upp
+# hashing.py - Innehållets identitet, delas med extraction.
 # db/models.py, vad som sparas i PostgreSQL
 # if __name__.... samma kod fungerar som vanliga script nu och som AIRFLOW task i MVP  V5
 
-import hashlib
+
 import enum
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from collections import Counter
-
-# Boto3
-from botocore.exceptions import ClientError
 
 # SQLAlchemy - ORM
 from sqlalchemy import create_engine, select
@@ -26,12 +23,12 @@ from sqlalchemy.orm import Session
 # Import av mina dictionary mappings repots funktioner
 from kms.config import settings
 from kms.db.models import Course, Document, DocumentStatus, SourceFile
+from kms.hashing import compute_file_hash
 from kms.ingestion.course_mapping import (
     get_course_tag,
     get_mirror_course_tag,
     get_transcript_course_tag,
 )
-from kms.storage.s3_client import ensure_bucket_exists, get_s3_client, upload_file
 
 # 1a) Filtret, Endast dom här filerna
 # Endast dom här filerna är välkommna i mitt data lakehouse JUST NU
@@ -45,9 +42,9 @@ class IngestOutcome(str, enum.Enum):
     """
     Result of processing ONE file in ONE run.
 
-    NEW_DOCUMENT: content thats never been seen before, uploaded to S3, new row in documents.
+    NEW_DOCUMENT: content thats never been seen before, new row in documents.
     NEW_COPY: Known content found at a new place, new row in source_files ONLY.
-    SKIPPED: Nothing written, unreadable file, S3 error or already registered.
+    SKIPPED: Nothing written, unreadable file or already registered.
     """
 
     NEW_DOCUMENT = "new_document"
@@ -77,7 +74,7 @@ def walk_source_files(repos_root: Path) -> Iterator[Path]:
     uses 'yield' to save RAM.
 
     This generator yields one file at a time, keeping nothing in memory other than its current position in the process.
-    It applies the same 'stream, dont load everything concept as compute_file_hash below,
+    It applies the same 'stream, dont load everything concept as compute_file_hash in hashing.py,
     but at the file level rather than the byte level, which becomes relevant the day repos_for_data grows in size.
 
     The .git exclusion uses the exact same logic already demonstrated in counting_script.py reused, not reinvented.
@@ -97,7 +94,7 @@ def walk_source_files(repos_root: Path) -> Iterator[Path]:
 @dataclass
 class DiscoveredFile:
     """
-    Everything I know about a file before it is hashed or uploaded.
+    Everything I know about a file before it is hashed.
     (A files metadata)
 
     A data class instead of a tuple, field names are explicit, so there is
@@ -114,7 +111,6 @@ class DiscoveredFile:
 
     local_path: Path  # Lokala pathen på min dator
     filename: str  # Filnamnet
-    s3_key: str  # Min S3 KEY
     course_tag: str  # Kursen för DETTA exemplar, blir en rad i courses via source_files
     source_type: str  # "pdf" | "markdown" | "transcript"
     source_path: str  # {repo}/{sökväg i repot}, exemplarets unika plats på disk
@@ -140,11 +136,10 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
     # Räknar ut vart jag är (t.ex python_course/01_course_structure/README.md)
     relative_to_root = file_path.relative_to(repos_root)
     repo_name = relative_to_root.parts[0]
-    relative_within_repo = file_path.relative_to(repos_root / repo_name)
 
     # Slår upp kursens tag via min explicita mapping (course_mapping.py)
     # Failar HÖGT om den INTE finns.
-    s3_course_segment = get_course_tag(repo_name)
+    repo_course_tag = get_course_tag(repo_name)
 
     # Specialhantering för just YT-transcripts semantiska tag
     # Finkornig, semantiskt korrekt tag PER fil.
@@ -158,45 +153,21 @@ def build_file_record(file_path: Path, repos_root: Path) -> DiscoveredFile:
             course_tag = get_transcript_course_tag(file_path.name)
         source_type = "transcript"
     else:
-        course_tag = s3_course_segment
+        course_tag = repo_course_tag
         source_type = "pdf" if file_path.suffix.lower() == ".pdf" else "markdown"
-
-    # Bygg S3-key. as_posix() skyddar mot windows issues med backslashes (\)
-    s3_key = f"{s3_course_segment}/{repo_name}/{relative_within_repo.as_posix()}"
 
     # Returnerar min data class
     return DiscoveredFile(
         local_path=file_path,
         filename=file_path.name,
-        s3_key=s3_key,
         course_tag=course_tag,
         source_type=source_type,
         source_path=relative_to_root.as_posix(),
     )
 
 
-# 5) HASH FUNKTION.
-# Läser varje fil i bits om 8kb för att spara på RAM och skapar mitt "fingeravtryck" för varje fil.
-# Skapar unik SHA-256bit hash. Innehållet blir filens identitet
-def compute_file_hash(file_path: Path) -> str:
-    """
-    SHA-256 hash of files CONTENT (Not the filename or filepath).
-
-    Function reads the file in 8192 byte chunks rather than loading the
-    ENTIRE file into memory using .read_bytes(). This makes no
-    noticeable difference for small .md files but would
-    matter significantly if a PDF were 500 MB. A RAM cost I dont want
-    for something as simple as a fingerprint.
-
-    Does NOT catch errors here, exceptions like PermissionError are allowed to propagate by design
-    the one using this function decides how to handle a read error,
-    not the function itself, which is intended solely for hashing.
-    """
-    hasher = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+# 5) HASH FUNKTION - flyttad till kms/hashing.py
+# Delas med extraction som kontrollerar filen på disk mot file_hash innan den läses
 
 
 # 6a) Minnet, tre uppslagningar som hämtas EN gång per körning (undviker N+1 problem)
@@ -270,19 +241,17 @@ def ingest_one_file(
     known_documents: dict[str, int],
     known_paths: dict[str, int],
     course_ids: dict[str, int],
-    s3_client,
-    bucket_name: str,
     session: Session,
 ) -> IngestOutcome:
     """
     Attempting to ingest ONE file.
 
-    NEW_DOCUMENT: new content, uploaded to S3, new row in documents AND source_files.
+    NEW_DOCUMENT: new content, new row in documents AND source_files.
     NEW_COPY: known content at a new path, new row in source_files only.
-    SKIPPED: unreadable file, S3 error, or path already registered with same content.
+    SKIPPED: unreadable file, or path already registered with same content.
 
     Raises RuntimeError when a registered path has gotten NEW content.
-    Checked BEFORE any upload, so S3 and Postgres can never drift apart.
+    Checked BEFORE anything is written, so a changed file never reaches Postgres.
     """
     # === FELTYP 1: Lokalt LÄSFEL ===
     try:
@@ -291,13 +260,13 @@ def ingest_one_file(
         print(f"[SKIPPING] could not read: {record.local_path}: {e}")
         return IngestOutcome.SKIPPED
 
-    # === Sökvägen redan registrerad? FÖRE all nätverks-I/O ===
+    # === Sökvägen redan registrerad? FÖRE all skrivning ===
     if record.source_path in known_paths:
         # Samma innehåll som förra körningen, redan registrerad, inget att göra
         if known_documents.get(file_hash) == known_paths[record.source_path]:
             return IngestOutcome.SKIPPED
-        # === FELTYP 3: Innehållskonflikt (Fail Loud) ===
-        # Samma sökväg, NYTT innehåll. Upptäcks nu FÖRE uppladdning till S3
+        # === FELTYP 2: Innehållskonflikt (Fail Loud) ===
+        # Samma sökväg, NYTT innehåll. Upptäcks FÖRE något skrivs till Postgres
         raise RuntimeError(
             f"source_path '{record.source_path}' is already registered with DIFFERENT "
             f"content than what was just calculated. Same path, changed content - "
@@ -305,7 +274,7 @@ def ingest_one_file(
         )
 
     # === Känt innehåll på en NY plats = nytt exemplar ===
-    # Ingen uppladdning, innehållet ligger redan i S3 exakt en gång
+    # Innehållet finns redan som en rad i documents, bara exemplaret är nytt
     if file_hash in known_documents:
         document_id = known_documents[file_hash]
         course_id = get_or_create_course_id(record.course_tag, course_ids, session)
@@ -322,18 +291,9 @@ def ingest_one_file(
         known_paths[record.source_path] = document_id
         return IngestOutcome.NEW_COPY
 
-    # === FELTYP 2: Nätverksfel mot S3 ===
-    try:
-        upload_file(s3_client, str(record.local_path), bucket_name, record.s3_key)
-    except ClientError as e:
-        print(f"[SKIPPING] S3-upload failed because: {record.s3_key}: {e}")
-        return IngestOutcome.SKIPPED  # Inget skrivs, nästa körning försöker igen
-
     # === DATABAS: nytt innehåll = ny rad i documents + dess första exemplar ===
-    # Kursen hämtas EFTER uppladdningen, misslyckas S3 skapas ingen kurs i onödan
     course_id = get_or_create_course_id(record.course_tag, course_ids, session)
     document = Document(
-        s3_key=record.s3_key,
         filename=record.filename,
         source_type=record.source_type,
         file_hash=file_hash,
@@ -360,9 +320,6 @@ def run_ingestion() -> None:
     """
     # Startar uppkopplingar
     engine = create_engine(settings.database_url)
-    s3_client = get_s3_client()
-    # Fail LOUD: Krasch om LocalStack är dött
-    ensure_bucket_exists(s3_client, settings.S3_BUCKET_NAME)
 
     # En räknare per utfall. Counter ger 0 för ett utfall som aldrig inträffat
     outcomes: Counter[IngestOutcome] = Counter()
@@ -382,8 +339,6 @@ def run_ingestion() -> None:
                 known_documents,
                 known_paths,
                 course_ids,
-                s3_client,
-                settings.S3_BUCKET_NAME,
                 session,
             )
             outcomes[outcome] += 1

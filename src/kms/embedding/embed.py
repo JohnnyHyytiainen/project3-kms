@@ -153,7 +153,6 @@ def require_embedding_ready(openai_client: OpenAI) -> None:
 
 
 # --- 7: Klienterna(OpenAI + chromaDB API) byggs på ETT ställe ---
-# Ska ha samma form som get_s3_client() i s3_client.py
 # run_embedding()-funktionen och rebuild.py använder exakt samma klient.
 def get_openai_client() -> OpenAI:
     """

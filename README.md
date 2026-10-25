@@ -14,7 +14,7 @@ Data engineering students face scattered course material - unindexed slides, mar
 
 `project3-kms` is a Retrieval-Augmented Generation (RAG) knowledge system built over a real corpus - 745 PDF, markdown and transcript files across 13 course repositories from a data engineering program (STI, DE25) - organized through a **medallion-layered pipeline** (`Bronze` -> `Silver` -> `Gold`). **The design goal**: every answer traces back to its exact source chunk, not a plausible-sounding guess.
 
-Built as a **thesis project**, staged across six MVPs. Ingestion and metadata are complete (MVP v1); extraction, chunking and Parquet-to-Silver are built and verified against the real corpus (MVP v2). Embeddings, a source-cited retrieve -> rerank -> generate API, a bounded self-correction loop and production deployment follow through MVP v6.
+Built as a **thesis project**, staged across six MVPs. Ingestion and metadata are complete (MVP v1); extraction and chunking are built and verified against the real corpus (MVP v2). Embeddings, a source-cited retrieve -> rerank -> generate API, a bounded self-correction loop and production deployment follow through MVP v6.
 
 ```mermaid
 ---
@@ -23,9 +23,9 @@ config:
 ---
 flowchart LR
     SRC["Course material<br/>PDF · Markdown · Transcripts"] --> ING["Ingestion<br/>v1 - done"]
-    ING --> BRONZE[("S3 + PostgreSQL<br/>Bronze")]
+    ING --> BRONZE[("PostgreSQL<br/>Bronze")]
     BRONZE --> EXT["Extraction & Chunking<br/>v2 - done"]
-    EXT --> SILVER[("Parquet<br/>Silver")]
+    EXT --> SILVER[("PostgreSQL chunks<br/>Silver")]
     SILVER --> EMB["Embeddings<br/>v3 - next"]
     EMB --> VDB[("ChromaDB")]
     VDB --> API["RAG API<br/>retrieve -> rerank -> generate<br/>v4"]
@@ -58,9 +58,9 @@ Three of those gaps are open work, stated here rather than hidden:
 
 | Layer | Built | Planned |
 |---|---|---|
-| **Ingestion** | `Python 3.12`, `boto3`, `SQLAlchemy 2.0`, `Alembic`, `psycopg3` | - |
+| **Ingestion** | `Python 3.12`, `SQLAlchemy 2.0`, `Alembic`, `psycopg3` | - |
 | **Extraction** | `PyMuPDF`, `pymupdf4llm` | OCR fallback, table extraction, header/footer filtering |
-| **Storage** | `PostgreSQL`, `LocalStack S3 (dev)`, `Parquet` via `pyarrow` | `ChromaDB (vectors)` |
+| **Storage** | `PostgreSQL` | `ChromaDB (vectors)` |
 | **AI layer** | - | `Grunden.ai` - `bge-m3` embeddings, `bge-reranker-v2-m3`, `glm-5.2` |
 | **Serving** | - | `FastAPI` |
 | **Orchestration** | - | `Airflow`, `dbt` + `DuckDB` |
@@ -68,15 +68,13 @@ Three of those gaps are open work, stated here rather than hidden:
 
 ## 4. Key Decisions
 
-- **Course tags come from an explicit mapping, and an unknown repo crashes the run.** Three error types are handled differently on purpose: an unreadable file is skipped, a failed `S3` upload retries on the next run, and an unrecognised repo name stops everything. Inferring the tag with a regex would have been shorter and would have silently mislabelled hundreds of files the first time a repo was renamed.
-
-- **S3 keys are namespaced as `{course_tag}/{repo_name}/{path}`.** Course repos reuse generic filenames (`README.md`, `slides.pdf`). Without the namespace, ingesting repo B would silently overwrite a same-named file from repo A - a failure mode caught at design time, not in production.
+- **Course tags come from an explicit mapping, and an unknown repo crashes the run.** Three error types are handled differently on purpose: an unreadable file is skipped, while a changed file at a known path and an unrecognised repo name both stop the run. Inferring the tag with a regex would have been shorter and would have silently mislabelled hundreds of files the first time a repo was renamed.
 
 - **`Document.status` is a `VARCHAR` holding the enum name, not a native Postgres `ENUM`.** A native enum turns every new status value into a migration. The trade-off is written down because it has a sharp edge: SQLAlchemy persists the *name*, so `WHERE status = 'pending'` returns zero rows without an error - the column contains `'PENDING'`. Raw SQL and dbt models further down the pipeline have to match on the name.
 
 - **A failed document gets a reason code on its own row - no crash, no dead-letter table.** Four codes separate "the PDF had no extractable text" from "it had text, below the threshold". The second answer means the document had content all along and the threshold is what's wrong. Naming the codes after what is actually broken, rather than after where the code noticed, is what makes them readable six months later.
 
-- **Parquet is the source of truth for chunk text; the vector store is always a derivative.** ChromaDB can be dropped and rebuilt from Parquet and Postgres at any time, and never holds anything that exists nowhere else. `ChromaDB` over `Qdrant` for the same reason a corpus this size doesn't yet justify a dedicated vector service - `Qdrant` stays on the table if measured latency ever demands it.
+- **Postgres is the source of truth for chunk text; the vector store is always a derivative.** ChromaDB can be dropped and rebuilt from Postgres at any time, and never holds anything that exists nowhere else. `ChromaDB` over `Qdrant` for the same reason a corpus this size doesn't yet justify a dedicated vector service - `Qdrant` stays on the table if measured latency ever demands it.
 
 - **Source citation is mandatory, not a feature toggle.** Every answer returns the exact chunk(s) it came from. Without that, the system is just another chatbot that sounds confident.
 
@@ -101,9 +99,9 @@ Requires [uv](https://docs.astral.sh/uv/) and Docker.
 
 `cp .env.example .env`
 
-Fill in `DB_USER`, `DB_PASSWORD` and `DB_NAME`. `docker-compose.yml` reads the same three variables, so Postgres and the application cannot disagree about them. `AWS_*` and `GRUNDEN_API_KEY` can stay as placeholders - they are not validated until MVP v3/v4.
+Fill in `DB_USER`, `DB_PASSWORD` and `DB_NAME`. `docker-compose.yml` reads the same three variables, so Postgres and the application cannot disagree about them. `GRUNDEN_API_KEY` can stay as a placeholder until the embedding step runs.
 
-**3. Start infrastructure** (Postgres on `:5436`, LocalStack S3 on `:4566`)
+**3. Start infrastructure** (Postgres on `:5436`, ChromaDB on `:8006`)
 
 `docker-compose up -d`
 
@@ -117,13 +115,13 @@ Fill in `DB_USER`, `DB_PASSWORD` and `DB_NAME`. `docker-compose.yml` reads the s
 `uv run python -m kms.ingestion.ingest`  
 `uv run python -m kms.extraction.extract`
 
-**6. Rebuild after a LocalStack restart**
+**6. Full rebuild**
 
 `uv run python tools/rebuild.py`
 
-Checks that LocalStack answers, asks for confirmation, truncates `chunks` and `documents`, then reruns ingestion and extraction and prints the time per step. The truncate is required: the dedup check reads from Postgres, so without it ingestion would skip every file and the bucket would stay empty.
+Checks that ChromaDB and Grunden.ai answer, asks for confirmation, empties the derived tables and the vector collection, then reruns ingestion, extraction and embedding, reconciles Postgres against ChromaDB and prints the time per step. The truncate is required: the dedup check reads from Postgres, so without it ingestion would skip every file.
 
-> **The S3 bucket is empty after every LocalStack restart.** Persistence is a paid LocalStack feature, so the dev stack is treated as disposable on purpose: `repos_for_data/` is the only real source of truth, and Bronze is rebuilt from it. A full rebuild takes about 46 seconds - measured before the question of persistence was decided, and cheap enough to settle it.
+> **A container restart needs no rebuild.** Postgres and ChromaDB keep their data in Docker volumes. Changed course material only reaches the index through a full rebuild, and `repos_for_data/` stays the only real source of truth.
 
 ## 6. Attribution
 
