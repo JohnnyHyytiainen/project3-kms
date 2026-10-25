@@ -11,14 +11,13 @@ graph TD
 
     subgraph MVP1["MVP v1 - Ingestion & Metadata"]
         ING[Ingestion-script]
-        S3[(LocalStack S3 - Bronze)]
-        PG1[(PostgreSQL: Document<br/>status=PENDING)]
+        PG1[(PostgreSQL: Document - Bronze<br/>status=PENDING)]
     end
 
     subgraph MVP2["MVP v2 - Extraktion & Transformation"]
         EXT[PyMuPDF + MD-parser]
         CHUNK[Chunking - semantiska block]
-        PARQUET[(Parquet - Silver)]
+        SILVER[(PostgreSQL: chunks - Silver)]
     end
 
     subgraph MVP3["MVP v3 - Intelligence & Sök"]
@@ -53,16 +52,15 @@ graph TD
     PDF --> ING
     MD --> ING
     TRANS --> ING
-    ING --> S3
     ING --> PG1
 
-    S3 --> EXT
+    Kallor -. läses från disk .-> EXT
     PG1 -. status PENDING .-> EXT
     EXT --> CHUNK
-    CHUNK --> PARQUET
-    PARQUET -. status uppdateras .-> PG1
+    CHUNK --> SILVER
+    SILVER -. status uppdateras .-> PG1
 
-    PARQUET --> EMB
+    SILVER --> EMB
     EMB --> CHROMA
     CHROMA -. vector-ID .-> PG1
 
@@ -78,7 +76,6 @@ graph TD
     EVAL -. mäter .-> API
 
     PG1 --> AIRFLOW
-    S3 --> AIRFLOW
     PG1 --> DBT
 
     API --> CD
