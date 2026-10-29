@@ -44,7 +44,7 @@ Every figure below was counted against disk and against the database, never esti
 | Content duplicates collapsed | **66 (14.0 %)** |
 | Unique PDFs among them | **94** -> 90 `EXTRACTED`, 4 `FAILED` |
 | Full rebuild from an empty stack | **~46 s** (21.4 s ingestion + 24.9 s extraction) via `tools/rebuild.py` |
-| Test suite | **53 unit tests**, 0 integration |
+| Test suite | **89 unit tests**, 0 integration |
 
 Three of those gaps are open work, stated here rather than hidden:
 
@@ -64,7 +64,7 @@ Three of those gaps are open work, stated here rather than hidden:
 | **AI layer** | - | `Grunden.ai` - `bge-m3` embeddings, `bge-reranker-v2-m3`, `glm-5.2` |
 | **Serving** | - | `FastAPI` |
 | **Orchestration** | - | `Airflow`, `dbt` + `DuckDB` |
-| **Ops** | `Docker Compose`, `GitHub Actions CI`, `pytest` (44 unit), `Ruff` | integration tests, reverse proxy + `TLS`, `CD` |
+| **Ops** | `Docker Compose`, `GitHub Actions CI`, `pytest` (89 unit), `Ruff` | integration tests, reverse proxy + `TLS`, `CD` |
 
 ## 4. Key Decisions
 
