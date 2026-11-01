@@ -9,3 +9,6 @@
 - Linting + formatting:
     - `uv run ruff check .`
     - `uv run ruff format --check .`
+
+- Start API 
+    - `uv run uvicorn kms.api.main:app --reload`
