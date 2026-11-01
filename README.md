@@ -44,7 +44,7 @@ Every figure below was counted against disk and against the database, never esti
 | Content duplicates collapsed | **66 (14.0 %)** |
 | Unique PDFs among them | **94** -> 90 `EXTRACTED`, 4 `FAILED` |
 | Full rebuild from an empty stack | **~46 s** (21.4 s ingestion + 24.9 s extraction) via `tools/rebuild.py` |
-| Test suite | **89 unit tests**, 0 integration |
+| Test suite | **98 unit tests**, 0 integration |
 
 Three of those gaps are open work, stated here rather than hidden:
 
