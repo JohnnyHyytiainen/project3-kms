@@ -14,8 +14,8 @@ import time
 from sqlalchemy import create_engine, text
 
 from kms.config import settings
+from kms.embedding.constants import COLLECTION_NAME
 from kms.embedding.embed import (
-    COLLECTION_NAME,
     get_chroma_client,
     get_openai_client,
     require_embedding_ready,

@@ -41,9 +41,8 @@ import httpx2
 import openai
 
 from kms.db.models import Chunk, Course, Document, DocumentStatus, SourceFile
+from kms.embedding.constants import EMBEDDING_DIM, EMBEDDING_MODEL
 from kms.embedding.embed import (
-    EMBEDDING_DIM,
-    EMBEDDING_MODEL,
     EmbeddingOutcome,
     course_tags_for,
     embed_one_document,

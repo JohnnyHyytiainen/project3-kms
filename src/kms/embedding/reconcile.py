@@ -20,7 +20,8 @@ from sqlalchemy.orm import Session
 
 from kms.config import settings
 from kms.db.models import Chunk, Document, DocumentStatus
-from kms.embedding.embed import COLLECTION_NAME, get_chroma_client
+from kms.embedding.embed import COLLECTION_NAME
+from kms.embedding.embed import get_chroma_client
 
 # Sample size över hur många IDn som ska visas per fel. ALLA IDn är irrelevant
 SAMPLE_SIZE = 6
