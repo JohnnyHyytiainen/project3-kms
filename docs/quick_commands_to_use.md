@@ -1,4 +1,11 @@
 # quick and easy commands to use when needed
 
 - To run tests locally:
-    - ` pytest tests/unit/test_extraction.py -v ` (pytest folder/subfolder/test_script.py -v)
+    - `uv run pytest`
+
+- To start API layer:
+    - `uv run uvicorn kms.api.main:app --reload`
+
+- Linting + formatting:
+    - `uv run ruff check .`
+    - `uv run ruff format --check .`
