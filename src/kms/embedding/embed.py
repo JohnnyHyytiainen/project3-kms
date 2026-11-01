@@ -21,15 +21,16 @@ from sqlalchemy.orm import Session
 
 from kms.config import settings
 from kms.db.models import Document, DocumentStatus
+from kms.embedding.constants import (
+    BATCH_SIZE,
+    COLLECTION_NAME,
+    EMBEDDING_DIM,
+    EMBEDDING_MODEL,
+    GRUNDEN_BASE_URL,
+    MAX_RETRIES,
+)
 
-# --- 1: Konstanter ---
-GRUNDEN_BASE_URL = "https://api.grunden.ai/v1"
-EMBEDDING_MODEL = "bge-m3"
-EMBEDDING_DIM = 1024  # låser Chroma-samlingen från första skrivningen.
-BATCH_SIZE = 32  # Grundens uppmätta tak per anrop (422 error om större)
-MAX_RETRIES = 5  # Skydd och MAX antal försök
-COLLECTION_NAME = "kms_chunks"
-
+# --- 1: Tillfälliga fel ---
 # Fel som säger något om NÄTET eller TJÄNSTEN, inte om dokumentet.
 # Allt annat (fel nyckel, fel modell, för stor batch) är fel i kod eller config.
 # Menat att krascha HÖGT och inte hoppa över dokument ett i taget i tystnad
