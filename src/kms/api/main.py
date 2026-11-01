@@ -8,10 +8,13 @@ GET /health: endpoint to prove that the process starts - Liveness only.
 GET /search: endpoint for searches - Question in and sources out. NO reranking, NO generation.
 """
 
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import FastAPI, Query, Request
+from chromadb.api.models.Collection import Collection
+from fastapi import Depends, FastAPI, Query, Request
+from openai import OpenAI
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -54,7 +57,32 @@ app = FastAPI(
 )
 
 
-# ===== 2: Svarets form =====
+# ===== 2: Beroenden, lämnas ut per anrop med Depends =====
+# lifespan skapar klienterna en gång. Funktionerna under lämnar bara ut dom.
+def get_session(request: Request) -> Iterator[Session]:
+    """One session PER request, borrowed from SQLAlchemy engine pool and returned afterwards."""
+    # yield - FastAPI kör raderna efter yield när anropet är klart - även när något går fel
+    with Session(request.app.state.engine) as session:
+        yield session
+
+
+def get_embedding_client(request: Request) -> OpenAI:
+    """The client that embeds the question. Same model as the corpus."""
+    return request.app.state.openai_client
+
+
+def get_chroma_collection(request: Request) -> Collection:
+    """The collection the search reads from. Created once in lifespan."""
+    return request.app.state.collection
+
+
+# Typ + depends i ett och samma namn. Samma tre ska återanvändas av /ask-endpoint senare.
+SessionDep = Annotated[Session, Depends(get_session)]
+EmbeddingClientDep = Annotated[OpenAI, Depends(get_embedding_client)]
+CollectionDep = Annotated[Collection, Depends(get_chroma_collection)]
+
+
+# ===== 3: Svarets form =====
 class SearchResponse(BaseModel):
     question: str
     hits: list[SearchHit]
@@ -73,22 +101,22 @@ def health_endpoint() -> dict[str, str]:
 # SEARCH ENDPOINT
 @app.get("/search")
 def search_endpoint(
-    request: Request,
     q: Annotated[str, Query(min_length=1, description="The question")],
+    session: SessionDep,
+    openai_client: EmbeddingClientDep,
+    collection: CollectionDep,
+    # k är sist: en parameter med standardvärde måste stå efter dem utan
     k: Annotated[int, Query(ge=1, le=20, description="Number of sources")] = 5,
 ) -> SearchResponse:
     """
     Embeds the question using bge-m3, fetches the K nearest chunks from ChromaDB and their text,
     document, course and source_location from Postgres.
     """
-    state = request.app.state
-    # Endast EN session per anrop, lånas ur SQLAlchemys pool. Sessionen lämnas tillbaka efteråt.
-    with Session(state.engine) as session:
-        hits = search(
-            q,
-            k,
-            session=session,
-            openai_client=state.openai_client,
-            collection=state.collection,
-        )
+    hits = search(
+        q,
+        k,
+        session=session,
+        openai_client=openai_client,
+        collection=collection,
+    )
     return SearchResponse(question=q, hits=hits)
