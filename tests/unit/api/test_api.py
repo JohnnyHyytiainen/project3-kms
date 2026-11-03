@@ -2,8 +2,10 @@
 #
 # Appen testas genom HTTP exakt så som en klient ser den med:
 # Statuskod och svarets form i JSON.
-# Uppstart (Lifespan) körs inte här. TestClient utan with-statement startar aldrig appen.
-# Beroenden byts ut med app.dependency_overrides - FastAPIs eget sätt.
+# DEL 1 + 2 startar ALDRIG appen. TestClient utan ett with-statement kör inte lifespan.
+# Där byts beroenden ut med app.dependency_overrides som är FastAPIs eget sätt.
+#
+# DEL 3 startar appen med ett with-statement. Uppstarten har ingen Depends, använder monkeypatch här.
 #
 # DEL 1: Validering av frågan - Statuskod 422
 # A1: Tom q ger 422 och felet SKA peka på q
@@ -14,14 +16,18 @@
 # A2: k precis INNANFÖR gränserna 1 och 20, ger kod 200 och  k når ChromaDB som n_results.
 # B2: Formen på svaret, det som en klient läser: question, hits och varje träffs fält.
 #
-#
+# DEL 3: Uppstarten(Lifespan) - with TestClient(app) som startar appen.
+# A3: En saknad samling stoppar startern.
+# B3: En LYCKAD start ska lägga klienterna på app.state och köra kontrollen mot Grunden.
 
 from types import SimpleNamespace
 
 import pytest
+from chromadb.errors import NotFoundError
 from fastapi.testclient import TestClient
 
 from kms.api.main import app, get_chroma_collection, get_embedding_client, get_session
+from kms.embedding.constants import COLLECTION_NAME, EMBEDDING_DIM, EMBEDDING_MODEL
 from search_fakes import FakeClient, FakeCollection, FakeSession, make_chunk
 
 
@@ -144,3 +150,67 @@ def test_search_returns_question_and_hits(answering_client, fakes):
         "courses",
         "source_location",
     }
+
+
+# ========== DEL 3: UPPSTARTEN (LIFESPAN) ==========
+class FakeChromaClient:
+    """
+    Stand in for chromadb.HttpClient.
+    Only get_collection() is used, by lifespan.
+
+    Without a collection it raises what Chroma v1.5.9 raises when the collection is missing.
+    """
+
+    def __init__(self, collection=None):
+        self.collection = collection
+        self.requested = []  # Namnen som lifespan bad om
+
+    def get_collection(self, name, *, embedding_function):
+        self.requested.append(name)
+        if self.collection is None:
+            raise NotFoundError(f"The collection [{name}] does NOT exist")
+        return self.collection
+
+
+def start_with(monkeypatch, *, openai_client, chroma_client):
+    """
+    Patches the two client factories where lifespan USES them: in kms.api.main.
+    from X import Y binds Y in main, so a patch in kms.embedding.embed is never seen.
+    """
+    monkeypatch.setattr("kms.api.main.get_openai_client", lambda: openai_client)
+    monkeypatch.setattr("kms.api.main.get_chroma_client", lambda: chroma_client)
+
+
+#
+# A3: Saknas samlingen ska servern INTE starta
+def test_startup_stops_when_collection_is_missing(monkeypatch):
+    start_with(
+        monkeypatch,
+        # Korpusens LÄNGD på vektorn annars stoppar kontrollen starten av fel orsak och skriker.
+        openai_client=FakeClient(vector=[0.0] * EMBEDDING_DIM),
+        chroma_client=FakeChromaClient(collection=None),
+    )
+
+    # with startar appen. Kraschar lifespan når felet ner hit, och servern tar aldrig emot en fråga och skriker.
+    with pytest.raises(NotFoundError):
+        with TestClient(app):
+            pass
+
+
+#
+# B3: En lyckad start med klienterna på app.state och kontrollen mot Grunden är körd
+def test_startup_puts_clients_on_app_state(monkeypatch):
+    openai_client = FakeClient(vector=[0.0] * EMBEDDING_DIM)
+    collection = FakeCollection(ids=[], distances=[])
+    chroma_client = FakeChromaClient(collection=collection)
+    start_with(monkeypatch, openai_client=openai_client, chroma_client=chroma_client)
+
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+        # Det beroende som lämnas ut senare är exakt det lifespan skapade
+        assert app.state.openai_client is openai_client
+        assert app.state.collection is collection
+
+    # Samlingen hämtades med korpusens namn samt att kontrollen gick mot korpusens modell
+    assert chroma_client.requested == [COLLECTION_NAME]
+    assert openai_client.embeddings.calls[0]["model"] == EMBEDDING_MODEL

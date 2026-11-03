@@ -18,8 +18,10 @@ from kms.db.models import Chunk, Course, Document, DocumentStatus, SourceFile
 class FakeEmbeddings:
     """Stand-in for client.embeddings. Records every call, returns one vector per text."""
 
-    def __init__(self):
+    def __init__(self, vector=(0.1, 0.2, 0.3)):
         self.calls = []
+        # Exakt samma vector för varje text. Uppstarts kontroll kräver korpusens längd
+        self.vector = list(vector)
 
     def create(self, *, model, input, encoding_format):
         self.calls.append(
@@ -27,17 +29,16 @@ class FakeEmbeddings:
         )
         # Samma form som Grundens svar: resp.data[i].index och resp.data[i].embedding
         data = [
-            SimpleNamespace(index=i, embedding=[0.1, 0.2, 0.3])
-            for i, _ in enumerate(input)
+            SimpleNamespace(index=i, embedding=self.vector) for i, _ in enumerate(input)
         ]
         return SimpleNamespace(data=data)
 
 
 class FakeClient:
-    """Stand-in for the OpenAI client. Only .embeddings is used by search()."""
+    """Stand-in for the OpenAI client. Only .embeddings is used, by search() and at startup."""
 
-    def __init__(self):
-        self.embeddings = FakeEmbeddings()
+    def __init__(self, **kwargs):
+        self.embeddings = FakeEmbeddings(**kwargs)
 
 
 class FakeCollection:
