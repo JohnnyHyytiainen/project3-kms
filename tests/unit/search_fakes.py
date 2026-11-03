@@ -4,7 +4,7 @@
 # Kommentarer: Svenska
 #
 # Används av retrieval/test_retrieval_search.py + api/test_api.py scripten.
-# INGEN TESTFIL - filen börjar ej på text_*, så att pytest samlar aldrig in filen och kör den.
+# INGEN TESTFIL - filen börjar ej på test_*, så att pytest samlar aldrig in filen och kör den.
 # Ska INTE ligga i conftest.py - conftest är config för det ALLA tester behöver.
 # Vanlig modul-import tack vare pythonpath i .toml filen.
 
