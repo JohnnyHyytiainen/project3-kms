@@ -6,7 +6,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?)
 ![Docker](https://img.shields.io/badge/Docker%20Compose-2496ED?)
 
-**Status:** MVP v1 complete (tagged `v1.0.0`) · MVP v2 built and verified end-to-end · MVP v3 (embeddings) next
+**Status:** MVP v3 complete (tagged `v3.0.0`) · 
 
 ## 1. Problem & Approach
 
