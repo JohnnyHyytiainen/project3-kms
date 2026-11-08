@@ -53,7 +53,7 @@ def load_pairs(path: Path) -> list[EvaluationPair]:
     """
     Reads ONE pair per line. Fails LOUDLY and FAST with file, line number and on DUPLICATED id.
 
-    The SAME d twice makes the before and after result impossible to compare.
+    The SAME id twice makes the before and after result impossible to compare.
     """
     pairs: list[EvaluationPair] = []
     # Välj encoding då Windows default INTE är utf-8 och å/ä/ö kommer leda till att saker kraschar/går sönder
