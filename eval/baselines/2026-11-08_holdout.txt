@@ -1,0 +1,17 @@
+h001 rank  2 Vad är skillnaden mellan en naturlig nyckel och en surrogatnyckel?
+h002 rank  1 Vad är en KPI och vad används den till?
+h003 rank  1 Vad är skillnaden mellan TCP och UDP?
+h004 rank  7 Vad gör man när Python inte fungerar i terminalen efter installationen på Windows?
+h005 rank  4 Vad är skillnaden mellan en logisk och en fysisk datamodell?
+h006 rank  1 Vad är skillnaden mellan dbt Core och dbt Cloud?
+h007 rank  1 Vad används sigmoidfunktionen till i logistisk regression?
+h008 rank  1 Hur väljer man värdet på k i k-nearest neighbors?
+h009 rank  1 Vad är ett topic i Kafka?
+h010 rank  1 Hur fungerar rollhierarkin i Snowflake?
+
+holdout.jsonl: 10 questions
+  hit_rate@1     0.70
+  hit_rate@3     0.80
+  hit_rate@5     0.90
+  hit_rate@10    1.00
+  mrr@10         0.79
