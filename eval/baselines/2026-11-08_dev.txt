@@ -1,0 +1,37 @@
+q001 rank  2 Vad är en uppdateringsanomali i en databastabell?
+q002 rank  1 Vad menas med grain när man designar en faktatabell?
+q003 rank  5 Vad är skillnaden mellan ETL och ELT?
+q004 rank  1 Hur filtrerar man rader i en pandas DataFrame med ett reguljärt uttryck?
+q005 rank  1 Vad är software-defined assets i Dagster?
+q006 rank  1 Vad är en semantisk modell i Power BI?
+q007 rank  1 Hur installerar man Terraform på Windows?
+q008 rank  1 Vad är skillnaden mellan överanpassning och underanpassning i maskininlärning?
+q009 rank  1 Vilken roll har silverlagret i en medallion-arkitektur?
+q010 rank  2 Hur fungerar en random forest?
+q011 rank  - Hur läser man in en stor CSV-fil bit för bit så att minnet räcker?
+q012 rank  1 När passar en NoSQL-databas bättre än en relationsdatabas?
+q013 rank  1 Varför kör man inte analyser direkt mot databasen som systemet använder för sina transaktioner?
+q014 rank  4 Vad är det som står för beräkningskraften när man kör frågor i Snowflake?
+q015 rank  1 Vad är skillnaden mellan AI, maskininlärning och djupinlärning?
+q016 rank  4 Hur låter man en klass återanvända kod från en annan klass i Python?
+q017 rank  1 Vad är skillnaden mellan en rapport och en dashboard i Power BI?
+q018 rank  1 Varför ska man inte jobba direkt på main när man är flera i samma projekt?
+q019 rank  1 Hur sparar man en SQL-fråga så att den kan användas som en tabell utan att datan lagras?
+q020 rank  1 Hur låter man den som läser en Power BI-rapport växla mellan olika scenarier?
+q021 rank  1 Hur testar man datan i en dbt-pipeline?
+q022 rank  1 Vad är skillnaden mellan att ha egna servrar och att hyra dem i molnet?
+q023 rank  1 Hur deployar man en FastAPI-app serverless i Azure?
+q024 rank  1 Hur skyddar man sig mot att det användaren skriver in körs som SQL-kod?
+q025 rank  - Hur kan man låta en språkmodell bedöma kvaliteten på svaren från en annan modell?
+q026 rank  1 Hur skriver man automatiska tester för Python-funktioner?
+q027 rank  1 Hur förhindrar man att ett Python-program kraschar när användaren matar in fel sorts värde?
+q028 rank  5 Hur använder man resultatet av en SQL-fråga inuti en annan fråga?
+q029 rank  8 Hur ställer man frågor på vanligt språk mot sina tabeller i Databricks?
+q030 rank  4 Hur kan olika klasser ha metoder med samma namn som beter sig olika?
+
+dev.jsonl: 30 questions
+  hit_rate@1     0.67
+  hit_rate@3     0.73
+  hit_rate@5     0.90
+  hit_rate@10    0.93
+  mrr@10         0.74
