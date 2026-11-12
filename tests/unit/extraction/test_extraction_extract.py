@@ -2,7 +2,7 @@
 # Kommentarer: Svenska
 # ====================
 #
-# Tester som är uppdelade i 2 delar.
+# Tester som är uppdelade i 3 delar.
 #
 # Del 1: Tester för build_sections_from_markdown() i extract.py
 # A1: En sektion per rubrikblock, rubrikraden ligger INNE i sektionens text
@@ -25,6 +25,7 @@
 # A3: Filen saknas på DISK -> FAILED med SOURCE_MISSING och det är committat.
 # B3: Filen har ändrats sen ingestion -> RuntimeError, dokumentet ska stå kvar med status PENDING
 # C3: Filen GÅR inte att läsa (transient error) -> SKIPPED, dokumentet ska stå kvar med status PENDING
+# D3: Ett dokument som ENDAST är rubrik + markup -> FAILED med TEXT_BELOW_THRESHOLD. Rensningen sitter FÖRE chunkern.
 
 import hashlib
 import uuid
@@ -218,6 +219,14 @@ def test_short_page_is_exactly_what_chunker_discards():
 # då hade hashen berott på operativsystemet och inte på innehållet (Windows och OS issues...)
 SOURCE_PATH = "python_course/notes.md"
 CONTENT = "# Rubrik\n\nText som ingestion hashade.\n".encode("utf-8")
+MARKUP_ONLY = (
+    "# Introduction\n"
+    "\n"
+    '<a href="https://youtu.be/6fjd0i_n35c" target="_blank">\n'
+    '  <img src="https://github.com/kokchun/assets/blob/main/ai_intro.png"'
+    ' alt="ai intro" width="600">\n'
+    "</a>\n"
+).encode("utf-8")
 
 
 def add_pending_document(session: Session, content: bytes) -> Document:
@@ -297,3 +306,20 @@ def test_unreadable_source_file_is_skipped(tmp_path, session, monkeypatch):
     assert outcome == ExtractionOutcome.SKIPPED
     session.rollback()
     assert document.status == DocumentStatus.PENDING
+
+
+# D3: Ett dokument som ENDAST är en rubrik och markup -> FAILED med TEXT_BELOW_THRESHOLD
+# Rensningen sitter FÖRE chunkern, utan den bär markupen sektionen över MIN_CHUNK_SIZE(även fast den ej är över)
+# och dokumentet når chunk-skrivningen, som SQLite sessionen inte har någon tabell för.
+def test_markup_only_document_fails_below_threshold(tmp_path, session):
+    document = add_pending_document(session, MARKUP_ONLY)
+    write_source_file(tmp_path, MARKUP_ONLY)
+
+    outcome = extract_one_document(document, tmp_path, session)
+
+    assert outcome == ExtractionOutcome.FAILED
+    session.rollback()
+    assert document.status == DocumentStatus.FAILED
+    assert document.failure_reason == FailureReason.TEXT_BELOW_THRESHOLD
+    # Tecken räknas på den RENSADE texten: "# Introduction" är 14x chars
+    assert "14 chars extracted" in document.error_message
