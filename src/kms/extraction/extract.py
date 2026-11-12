@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, selectinload
 from kms.config import settings
 from kms.db.models import Chunk, Document, DocumentStatus, FailureReason
 from kms.extraction.chunker import MIN_CHUNK_SIZE, Section, chunk_document
+from kms.extraction.cleaning import clean_text
 from kms.extraction.pdf_extractor import PdfExtractionError, extract_pages
 from kms.hashing import compute_file_hash
 
@@ -311,6 +312,14 @@ def extract_one_document(
             FailureReason.UNREADABLE_SOURCE,
             f"extraction failed: {e}",
         )
+
+    # --- Rensningen: Silvers "T" i "ETL". EN gånge per sektion. FÖRE sidmåtten och chunkern ---
+    # Sidmåtten OCH chunkern ska se SAMMA text, annars betyder "kort sida" inte längre:
+    # 'Sidan som chunkern kastade' (Se funktion 7 measure_pages()). source_location följer med och är orörd.
+    sections = [
+        Section(text=clean_text(section.text), source_location=section.source_location)
+        for section in sections
+    ]
 
     # --- Sidmått: Bara PDF, ska mötas FÖRE noll-chunk-koll ---
     # PDF som blir FAILED (bilder) ska få sina sidor räknade, _mark_failed committar
