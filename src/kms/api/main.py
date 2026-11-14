@@ -6,6 +6,7 @@
 Serving layer for the KMS. The FastAPI app lives here and no where else.
 GET /health: endpoint to prove that the process starts - Liveness only.
 GET /search: endpoint for searches - Question in and sources out. NO reranking, NO generation.
+POST /ask: endpoint for answers - Question in, the answer + its sources out. NO reranking.
 """
 
 from collections.abc import Iterator
@@ -15,7 +16,7 @@ from typing import Annotated
 from chromadb.api.models.Collection import Collection
 from fastapi import Depends, FastAPI, Query, Request
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,7 @@ from kms.embedding.embed import (
     get_openai_client,
     require_embedding_ready,
 )
+from kms.generation.agent import generate_answer
 from kms.retrieval.search import SearchHit, search
 
 
@@ -52,7 +54,7 @@ async def lifespan(app: FastAPI):
 # Appen ska startas EN GÅNG på modulnivå. Uvicorn letar upp den via 'kms.api.main:app'
 app = FastAPI(
     title="KMS platform",
-    description="Search over the course material. Sources first, no generation at the moment.",
+    description="Search and answers over the course material. Every answer comes with its sources.",
     lifespan=lifespan,
 )
 
@@ -82,10 +84,23 @@ EmbeddingClientDep = Annotated[OpenAI, Depends(get_embedding_client)]
 CollectionDep = Annotated[Collection, Depends(get_chroma_collection)]
 
 
-# ===== 3: Svarets form =====
+# ===== 3: Formen på det som kommer IN och kommer ut =====
 class SearchResponse(BaseModel):
     question: str
     hits: list[SearchHit]
+
+
+# Body till /ask-endpointen. Samma gränser som q och k i /search
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, description="The question")
+    k: int = Field(default=5, ge=1, le=20, description="The number of sources")
+
+
+class AskResponse(BaseModel):
+    question: str
+    answer: str
+    # Källor == träffarna ur Postgres DB och ALDRIG texten ur modellens svar
+    sources: list[SearchHit]
 
 
 # HEALTH ENDPOINT
@@ -120,3 +135,30 @@ def search_endpoint(
         collection=collection,
     )
     return SearchResponse(question=q, hits=hits)
+
+
+# ASK ENDPOINT
+# Param heter body och inte request då request redan betyder något annat.
+@app.post("/ask")
+def ask_endpoint(
+    body: AskRequest,
+    session: SessionDep,
+    openai_client: EmbeddingClientDep,
+    collection: CollectionDep,
+) -> AskResponse:
+    """
+    Fetches the K nearest chunk exactly like /search and then sends the question + the hits to the answer model.
+    The sources are the hits and not text from the answer.
+    """
+    # Använder sig av samma anrop som /search gör
+    hits = search(
+        body.question,
+        body.k,
+        session=session,
+        openai_client=openai_client,
+        collection=collection,
+    )
+
+    # Frågan och träffarna(hits) till svarsmodellen
+    answer = generate_answer(body.question, hits)
+    return AskResponse(question=body.question, answer=answer, sources=hits)
