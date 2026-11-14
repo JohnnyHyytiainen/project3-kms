@@ -16,3 +16,6 @@
 
 - Start API 
     - `uv run uvicorn kms.api.main:app --reload`
+
+- Run the eval-harness with current 30x questions:
+    - `uv run python -m kms.evaluation.harness`
