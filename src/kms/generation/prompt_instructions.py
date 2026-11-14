@@ -8,7 +8,7 @@ from kms.retrieval.search import SearchHit
 
 # ===== 1: Instruktionerna(prompten) =====
 ANSWER_INSTRUCTIONS = (
-    "Answer in Swedish. Answer only from the numbered sources in the prompt. "
+    "Answer in the same language the user inputs. Answer only from the numbered sources in the prompt. "
     "If the sources do not contain the answer, say that the sources are missing. "
     "Cite each source you use with its number in brackets, like [1]."
 )
