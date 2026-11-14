@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     DB_PORT: int
 
     GRUNDEN_API_KEY: str
+    ANSWER_MODEL: str
     CHROMA_HOST: str
     CHROMA_PORT: int
 
