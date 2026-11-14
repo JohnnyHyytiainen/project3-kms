@@ -1,9 +1,9 @@
-# answer.py
+# agent_instructions.py
+# Vad agenten får veta: instruktionen och prompten
 # Kod: Engelska
 # Kommentarer: Svenska
 
-from pydantic_ai import Agent
-
+# Importerar ALDRIG agent.py. Pilen går bara åt ett håll: agent.py -> den här filen
 from kms.retrieval.search import SearchHit
 
 # ===== 1: Instruktionerna(prompten) =====
@@ -23,19 +23,3 @@ def build_prompt(question: str, hits: list[SearchHit]) -> str:
     """
     sources = "\n\n".join(f"[{hit.rank}] {hit.filename}\n{hit.text}" for hit in hits)
     return f"Sources:\n\n{sources}\n\nQuestion: {question}"
-
-
-# ===== 3: Svaret =====
-def generate_answer(
-    question: str,
-    hits: list[SearchHit],
-    *,
-    agent: Agent[None, str],
-) -> str:
-    """
-    Sends the prompt to the answer model ONCE and returns the answer as plain text.
-    The agent comes in as an argument and is created once elsewhere,
-    so a test can pass in an agent with a test model instead.
-    """
-    result = agent.run_sync(build_prompt(question, hits))
-    return result.output
