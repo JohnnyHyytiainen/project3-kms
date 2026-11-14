@@ -8,6 +8,7 @@
 
 import os
 
+import pydantic_ai.models
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -26,11 +27,17 @@ _UNIT_TEST_DEFAULTS = {
     "CHROMA_HOST": "localhost",
     "CHROMA_PORT": "8006",
     "GRUNDEN_API_KEY": "test",
+    "ANSWER_MODEL": "test-model",
 }
 
 # setdefault - RÖR aldrig en variabel som REDAN FINNS.
 for key, value in _UNIT_TEST_DEFAULTS.items():
     os.environ.setdefault(key, value)
+
+# ===== Spärr: Inga riktiga anrop till modeller i enhetstesterna ska finnas =====
+# Glömmer ett test answer_agent.override så SKA det krascha istället för att skicka requests
+# till grunden.
+pydantic_ai.models.ALLOW_MODEL_REQUESTS = False
 
 
 # === Delad fixture: Session =====

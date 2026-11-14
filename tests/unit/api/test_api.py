@@ -29,6 +29,8 @@ from fastapi.testclient import TestClient
 from kms.api.main import app, get_chroma_collection, get_embedding_client, get_session
 from kms.embedding.constants import COLLECTION_NAME, EMBEDDING_DIM, EMBEDDING_MODEL
 from search_fakes import FakeClient, FakeCollection, FakeSession, make_chunk
+from kms.generation.agent import answer_agent
+from pydantic_ai.models.test import TestModel
 
 
 # ====== Fixtures: Attrapper(mocks/stubs) som svarar, och klienten som använder dem med utbytta beroenden ======
@@ -214,3 +216,22 @@ def test_startup_puts_clients_on_app_state(monkeypatch):
     # Samlingen hämtades med korpusens namn samt att kontrollen gick mot korpusens modell
     assert chroma_client.requested == [COLLECTION_NAME]
     assert openai_client.embeddings.calls[0]["model"] == EMBEDDING_MODEL
+
+
+# A4: Svaret är modellens text, och källorna är träffarna ur Postgres
+def test_ask_returns_answer_and_sources(answering_client, fakes):
+    answer_text = "Silver holds cleaned data [1]."
+    # Bara inne i with-blocket svarar testmodellen. Efteråt är agenten tillbaka på sin riktiga modell
+    with answer_agent.override(model=TestModel(custom_output_text=answer_text)):
+        response = answering_client.post("/ask", json={"question": "What is silver?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    # Kontraktet mot klienten: exakt de tre fälten
+    assert set(body) == {"question", "answer", "sources"}
+    assert body["question"] == "What is silver?"
+    # Exakt testmodellens text. Ett svar som byggs någon annanstans syns här
+    assert body["answer"] == answer_text
+    # En chunk i attrappen ger exakt EN källa, och texten kommer från chunken, aldrig från svaret
+    [source] = body["sources"]
+    assert source["text"] == fakes.chunk.content
