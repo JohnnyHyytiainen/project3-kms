@@ -38,6 +38,7 @@ from kms.retrieval.search import SearchHit, search
 async def lifespan(app: FastAPI):
     # Varje client har sin egen pool. Skapas de per anrop kastas poolen varje gång
     app.state.engine = create_engine(settings.database_url)
+    logfire.instrument_sqlalchemy(engine=app.state.engine)
     app.state.openai_client = get_openai_client()
     # get_collection och INTE get_or_create_collection.
     # Sökningen får ALDRIG skapa ett tomt index.
