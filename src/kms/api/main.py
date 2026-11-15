@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from chromadb.api.models.Collection import Collection
+import logfire
 from fastapi import Depends, FastAPI, Query, Request
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -51,6 +52,13 @@ async def lifespan(app: FastAPI):
     app.state.engine.dispose()
 
 
+# ===== 2: Logfire: Slås på här och INGEN annanstans =====
+logfire.configure(
+    token=settings.LOGFIRE_TOKEN,
+    send_to_logfire="if-token-present",
+    service_name="kms-api",
+)
+
 # Appen ska startas EN GÅNG på modulnivå. Uvicorn letar upp den via 'kms.api.main:app'
 app = FastAPI(
     title="KMS platform",
@@ -58,8 +66,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Kräver appen därför sätts logfire EFTER den skapats. En rad per anrop till API't
+logfire.instrument_fastapi(app)
+# Varje körning av svarsagent med modellanrop + tokens
+logfire.instrument_pydantic_ai()
 
-# ===== 2: Beroenden, lämnas ut per anrop med Depends =====
+
+# ===== 3: Beroenden, lämnas ut per anrop med Depends =====
 # lifespan skapar klienterna en gång. Funktionerna under lämnar bara ut dom.
 def get_session(request: Request) -> Iterator[Session]:
     """One session PER request, borrowed from SQLAlchemy engine pool and returned afterwards."""
@@ -84,7 +97,7 @@ EmbeddingClientDep = Annotated[OpenAI, Depends(get_embedding_client)]
 CollectionDep = Annotated[Collection, Depends(get_chroma_collection)]
 
 
-# ===== 3: Formen på det som kommer IN och kommer ut =====
+# ===== 4: Formen på det som kommer IN och kommer ut =====
 class SearchResponse(BaseModel):
     question: str
     hits: list[SearchHit]
