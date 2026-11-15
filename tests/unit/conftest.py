@@ -39,6 +39,12 @@ for key, value in _UNIT_TEST_DEFAULTS.items():
 # till grunden.
 pydantic_ai.models.ALLOW_MODEL_REQUESTS = False
 
+# ===== Spärr: Ingenting ska skickas till Logfire ifrån mina tester =====
+# HÅRD spärr och INTE med setdefault som standardvärden ovanför.
+# Standardvärde fyller bara i det som saknas, en spärr ska gälla även om nyckel finns.
+# NYCKELN ska ALDRIG få vinna i unit tests.
+os.environ["LOGFIRE_TOKEN"] = ""
+
 
 # === Delad fixture: Session =====
 @pytest.fixture
