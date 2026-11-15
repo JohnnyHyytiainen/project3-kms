@@ -70,6 +70,9 @@ app = FastAPI(
 logfire.instrument_fastapi(app)
 # Varje körning av svarsagent med modellanrop + tokens
 logfire.instrument_pydantic_ai()
+# Varje request ut över HTTP: Embedding hos grunden, Chroma OCH modellanrop.
+# Gäller också klienter skapade före den här raden
+logfire.instrument_httpx()
 
 
 # ===== 3: Beroenden, lämnas ut per anrop med Depends =====
