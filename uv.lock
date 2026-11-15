@@ -667,6 +667,9 @@ fastapi = [
 httpx = [
     { name = "logfire-sdk", extra = ["httpx"] },
 ]
+sqlalchemy = [
+    { name = "logfire-sdk", extra = ["sqlalchemy"] },
+]
 
 [[package]]
 name = "logfire-api"
@@ -705,6 +708,9 @@ fastapi = [
 ]
 httpx = [
     { name = "opentelemetry-instrumentation-httpx" },
+]
+sqlalchemy = [
+    { name = "opentelemetry-instrumentation-sqlalchemy" },
 ]
 
 [[package]]
@@ -1068,6 +1074,22 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-instrumentation-sqlalchemy"
+version = "0.66b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "packaging" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c6/42/074fe26ccfa4b397916e3cae144700beb58b39119ac7cf7a7d1a00026f8b/opentelemetry_instrumentation_sqlalchemy-0.66b0.tar.gz", hash = "sha256:178968856b63b85d11d96de156fe81d4fa8de395741c6f2f5629de897e610cc8", size = 18181, upload-time = "2026-09-25T12:36:14.266Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/6d/4a6c9be0ab2afec0960455c995593852211a60e7e9a56e776629aeef62bb/opentelemetry_instrumentation_sqlalchemy-0.66b0-py3-none-any.whl", hash = "sha256:f7083407966f794c79c4643e97814e476c90f4fc5161f436c1b74f4d74551e94", size = 14424, upload-time = "2026-09-25T12:35:30.017Z" },
+]
+
+[[package]]
 name = "opentelemetry-proto"
 version = "1.45.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1202,7 +1224,7 @@ dependencies = [
     { name = "alembic" },
     { name = "chromadb-client" },
     { name = "fastapi" },
-    { name = "logfire", extra = ["fastapi", "httpx"] },
+    { name = "logfire", extra = ["fastapi", "httpx", "sqlalchemy"] },
     { name = "openai" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-ai-slim", extra = ["openai"] },
@@ -1225,7 +1247,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.18.5" },
     { name = "chromadb-client", specifier = "==1.5.9" },
     { name = "fastapi", specifier = ">=0.162.0" },
-    { name = "logfire", extras = ["fastapi", "httpx"], specifier = ">=5.6.0" },
+    { name = "logfire", extras = ["fastapi", "httpx", "sqlalchemy"], specifier = ">=5.6.0" },
     { name = "openai", specifier = ">=3.28.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4" },
     { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=2.68.0" },
