@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     CHROMA_HOST: str
     CHROMA_PORT: int
 
+    # Logfire nyckeln, den enda inställningen som FÅR saknas.
+    # Servern ska kunna starta UTAN Logfire och skickar då ingenting.
+    # str | None = None innebär att fältet FÅR saknas och värdet blir None.
+    LOGFIRE_TOKEN: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     COURSE_REPOS_ROOT: Path = Field(default_factory=_default_repos_root)
