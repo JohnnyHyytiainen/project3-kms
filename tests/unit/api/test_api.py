@@ -7,6 +7,7 @@
 #
 # DEL 3 startar appen med ett with-statement. Uppstarten har ingen Depends, använder monkeypatch här.
 #
+#
 # DEL 1: Validering av frågan - Statuskod 422
 # A1: Tom q ger 422 och felet SKA peka på q
 # B1: Saknat q ger 422, samma plats som A1 MEN annan orsak(Q finns inte ALLS)!
@@ -19,6 +20,13 @@
 # DEL 3: Uppstarten(Lifespan) - with TestClient(app) som startar appen.
 # A3: En saknad samling stoppar startern.
 # B3: En LYCKAD start ska lägga klienterna på app.state och köra kontrollen mot Grunden.
+#
+# DEL 4: /ask - Frågan i bodyn som JSON, svaret går genom svarsmodellen
+# A4: Svaret är modellens text, och källorna är träffarna ur Postgres.
+# B4: Tom och saknad fråga ger 422, och felet pekar på question i bodyn.
+# C4: k ett steg UTANFÖR gränserna, 0 och 21, ger 422 och felet pekar på k i bodyn.
+# D4: k precis INNANFÖR gränserna, 1 och 20, ska ge 200 och k når ChromaDB som n_results, om inte ska testet skrika rött.
+
 
 from types import SimpleNamespace
 
@@ -218,20 +226,57 @@ def test_startup_puts_clients_on_app_state(monkeypatch):
     assert openai_client.embeddings.calls[0]["model"] == EMBEDDING_MODEL
 
 
-# A4: Svaret är modellens text, och källorna är träffarna ur Postgres
+# ========== DEL 4: /ASK - FRÅGAN I BODYN, SVARET GENOM SVARSMODELLEN ==========
+#
+# A4:
 def test_ask_returns_answer_and_sources(answering_client, fakes):
     answer_text = "Silver holds cleaned data [1]."
-    # Bara inne i with-blocket svarar testmodellen. Efteråt är agenten tillbaka på sin riktiga modell
+    # endast inne i with-blocket som testmodellen svarar.
     with answer_agent.override(model=TestModel(custom_output_text=answer_text)):
         response = answering_client.post("/ask", json={"question": "What is silver?"})
 
     assert response.status_code == 200
     body = response.json()
-    # Kontraktet mot klienten: exakt de tre fälten
     assert set(body) == {"question", "answer", "sources"}
     assert body["question"] == "What is silver?"
-    # Exakt testmodellens text. Ett svar som byggs någon annanstans syns här
+    # Exakt testmodellens text, ett svar som byggs någon annanstans syns här
     assert body["answer"] == answer_text
-    # En chunk i attrappen ger exakt EN källa, och texten kommer från chunken, aldrig från svaret
     [source] = body["sources"]
     assert source["text"] == fakes.chunk.content
+
+
+# B4:
+@pytest.mark.parametrize("body", [{"question": ""}, {}], ids=["empty", "missing"])
+def test_ask_empty_or_missing_question_returns_422(client, body):
+    # json= skickar bodyn som JSON format. /ask tar ALDRIG frågan i adressen
+    response = client.post("/ask", json=body)
+
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    # Första delen säger VAR någonstans i anropet som felet sitter: body här, query i /search
+    assert error["loc"] == ["body", "question"]
+
+
+# C4:
+@pytest.mark.parametrize("k", [0, 21])
+def test_ask_k_out_of_bounds_returns_422(client, k):
+    response = client.post("/ask", json={"question": "What is silver?", "k": k})
+
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    assert error["loc"] == ["body", "k"]
+
+
+# D4:
+# Precis innanför  ge=1, le=20 gränserna.
+@pytest.mark.parametrize("k", [1, 20])
+def test_ask_k_at_bounds_returns_200_and_reaches_chroma(answering_client, fakes, k):
+    # /ask går vidare till svarsmodellen efter sökningen
+    # Utan override stoppar spärren i conftest.py
+    with answer_agent.override(model=TestModel()):
+        response = answering_client.post(
+            "/ask", json={"question": "What is silver layer?", "k": k}
+        )
+
+    assert response.status_code == 200
+    assert fakes.collection.queries[0]["n_results"] == k
