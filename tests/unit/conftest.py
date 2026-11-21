@@ -27,6 +27,9 @@ _UNIT_TEST_DEFAULTS = {
     "CHROMA_HOST": "localhost",
     "CHROMA_PORT": "8006",
     "GRUNDEN_API_KEY": "test",
+    # Addressen för svar och nyckeln för svar skiljer sig ifrån embeddings.
+    "ANSWER_BASE_URL": "http://answer.test/v1",
+    "ANSWER_API_KEY": "test-answer-key",
     "ANSWER_MODEL": "test-model",
 }
 
