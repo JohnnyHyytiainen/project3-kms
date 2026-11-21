@@ -25,6 +25,7 @@
 # A4: Svaret är modellens text, och källorna är träffarna ur Postgres.
 # B4: Tom och saknad fråga ger 422, och felet pekar på question i bodyn.
 # C4: k ett steg UTANFÖR gränserna, 0 och 21, ger 422 och felet pekar på k i bodyn.
+# D4: k precis INNANFÖR gränserna, 1 och 20, ska ge 200 och k når ChromaDB som n_results, om inte ska testet skrika rött.
 
 
 from types import SimpleNamespace
@@ -264,3 +265,18 @@ def test_ask_k_out_of_bounds_returns_422(client, k):
     assert response.status_code == 422
     error = response.json()["detail"][0]
     assert error["loc"] == ["body", "k"]
+
+
+# D4:
+# Precis innanför  ge=1, le=20 gränserna.
+@pytest.mark.parametrize("k", [1, 20])
+def test_ask_k_at_bounds_returns_200_and_reaches_chroma(answering_client, fakes, k):
+    # /ask går vidare till svarsmodellen efter sökningen
+    # Utan override stoppar spärren i conftest.py
+    with answer_agent.override(model=TestModel()):
+        response = answering_client.post(
+            "/ask", json={"question": "What is silver layer?", "k": k}
+        )
+
+    assert response.status_code == 200
+    assert fakes.collection.queries[0]["n_results"] == k
