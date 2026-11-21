@@ -8,7 +8,6 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from kms.config import settings
-from kms.embedding.constants import GRUNDEN_BASE_URL
 from kms.generation.agent_instructions import ANSWER_INSTRUCTIONS, build_prompt
 from kms.retrieval.search import SearchHit
 
@@ -35,17 +34,16 @@ def build_answer_model(
 # ===== 2: Agenten =====
 # Skapas EN gång när filen importeras, precis som settings i config.py
 answer_agent = Agent(
-    OpenAIChatModel(
-        settings.ANSWER_MODEL,
-        provider=OpenAIProvider(
-            base_url=GRUNDEN_BASE_URL, api_key=settings.GRUNDEN_API_KEY
-        ),
+    build_answer_model(
+        base_url=settings.ANSWER_BASE_URL,
+        api_key=settings.ANSWER_API_KEY,
+        model_name=settings.ANSWER_MODEL,
     ),
     instructions=ANSWER_INSTRUCTIONS,
 )
 
 
-# ===== 2: Svaret =====
+# ===== 3: Svaret =====
 def generate_answer(question: str, hits: list[SearchHit]) -> str:
     """
     Sends the prompt to the answer model ONCE and returns the answer as plain text.
