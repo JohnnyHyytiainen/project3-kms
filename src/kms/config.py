@@ -36,8 +36,17 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int
 
+    # Embedding models key, embeddingen är låst till Grunden.ai.
     GRUNDEN_API_KEY: str
+
+    # Svarsmodellen + dess 3 värden.
+    # Namngivna efter dess roll och INTE leverantören. Vilken leverantör som helst
+    # som talar OpenAI formen(Chat completions) ska fungera.
+    # Alla TRE är obligatoriska.
+    ANSWER_BASE_URL: str
+    ANSWER_API_KEY: str
     ANSWER_MODEL: str
+
     CHROMA_HOST: str
     CHROMA_PORT: int
 
