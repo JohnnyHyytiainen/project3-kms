@@ -1,0 +1,50 @@
+q001 reached yes  2  grounded yes  perfect     Vad är en uppdateringsanomali i en databastabell?
+q002 reached yes  1  grounded yes  perfect     Vad menas med grain när man designar en faktatabell?
+q003 reached no      grounded yes  acceptable  Vad är skillnaden mellan ETL och ELT?
+q004 reached yes  1  grounded yes  perfect     Hur filtrerar man rader i en pandas DataFrame med ett reguljärt uttryck?
+q005 reached yes  1  grounded yes  perfect     Vad är software-defined assets i Dagster?
+q006 reached yes  1  grounded yes  perfect     Vad är en semantisk modell i Power BI?
+q007 reached yes  1  grounded yes  perfect     Hur installerar man Terraform på Windows?
+q008 reached yes  1  grounded yes  perfect     Vad är skillnaden mellan överanpassning och underanpassning i maskininlärning?
+q009 reached yes  1  grounded yes  perfect     Vilken roll har silverlagret i en medallion-arkitektur?
+q010 reached yes  1  grounded yes  perfect     Hur fungerar en random forest?
+q011 reached no      grounded yes  missing     Hur läser man in en stor CSV-fil bit för bit så att minnet räcker?
+q012 reached yes  1  grounded yes  perfect     När passar en NoSQL-databas bättre än en relationsdatabas?
+q013 reached yes  1  grounded yes  perfect     Varför kör man inte analyser direkt mot databasen som systemet använder för sina transaktioner?
+q014 reached yes  4  grounded yes  missing     Vad är det som står för beräkningskraften när man kör frågor i Snowflake?
+q015 reached yes  1  grounded yes  perfect     Vad är skillnaden mellan AI, maskininlärning och djupinlärning?
+q016 reached yes  4  grounded yes  perfect     Hur låter man en klass återanvända kod från en annan klass i Python?
+q017 reached yes  1  grounded yes  perfect     Vad är skillnaden mellan en rapport och en dashboard i Power BI?
+q018 reached yes  1  grounded yes  perfect     Varför ska man inte jobba direkt på main när man är flera i samma projekt?
+q019 reached yes  1  grounded yes  perfect     Hur sparar man en SQL-fråga så att den kan användas som en tabell utan att datan lagras?
+q020 reached yes  1  grounded yes  perfect     Hur låter man den som läser en Power BI-rapport växla mellan olika scenarier?
+q021 reached yes  1  grounded yes  acceptable  Hur testar man datan i en dbt-pipeline?
+q022 reached yes  1  grounded yes  perfect     Vad är skillnaden mellan att ha egna servrar och att hyra dem i molnet?
+q023 reached yes  1  grounded yes  perfect     Hur deployar man en FastAPI-app serverless i Azure?
+q024 reached yes  1  grounded yes  perfect     Hur skyddar man sig mot att det användaren skriver in körs som SQL-kod?
+q025 reached no      grounded yes  missing     Hur kan man låta en språkmodell bedöma kvaliteten på svaren från en annan modell?
+q026 reached yes  1  grounded yes  perfect     Hur skriver man automatiska tester för Python-funktioner?
+q027 reached yes  1  grounded yes  perfect     Hur förhindrar man att ett Python-program kraschar när användaren matar in fel sorts värde?
+q028 reached yes  5  grounded yes  perfect     Hur använder man resultatet av en SQL-fråga inuti en annan fråga?
+q029 reached no      grounded yes  missing     Hur ställer man frågor på vanligt språk mot sina tabeller i Databricks?
+q030 reached yes  4  grounded yes  perfect     Hur kan olika klasser ha metoder med samma namn som beter sig olika?
+
+dev.jsonl, k=5, graded by hand (CRAG labels, Johnny)
+all: 30 questions
+  grounded       30/30
+  perfect 24  acceptable 2  missing 4  incorrect 0
+  crag_score     0.83
+expected document reached the model: 26 questions
+  grounded       26/26
+  perfect 24  acceptable 1  missing 1  incorrect 0
+  crag_score     0.94
+expected document did not reach the model: 4 questions
+  grounded       4/4
+  perfect 0  acceptable 1  missing 3  incorrect 0
+  crag_score     0.12
+
+
+dev.jsonl, k=5                  grounded  perfect  acceptable  missing  incorrect  CRAG
+alla 30 frågor                  30/30     24       2           4        0          0,83
+rätt dokument nådde modellen    26/26     24       1           1        0          0,94
+rätt dokument nådde inte fram    4/4       0       1           3        0          0,12
