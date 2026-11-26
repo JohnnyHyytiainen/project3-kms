@@ -7,7 +7,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?)
 ![Docker](https://img.shields.io/badge/Docker%20Compose-2496ED?)
 
-**Status:** MVP v4 in progress - search API and retrieval baseline built, answer endpoint next · last release `v3.0.0`
+**Status:** MVP v4 in progress - search API and retrieval baseline built, answer endpoint next · last release `v4.0.0`
 
 ## 1. Problem & Approach
 
@@ -15,7 +15,7 @@ Data engineering students face scattered course material - unindexed slides, mar
 
 `project3-kms` is a Retrieval-Augmented Generation (RAG) knowledge system built over a real corpus - 692 PDF, markdown and transcript files across 13 courses from a data engineering program (STI, DE25) - organized through a **medallion-layered pipeline** (`Bronze` -> `Silver` -> `Gold`). **The design goal**: every answer traces back to its exact source chunk, not a plausible-sounding guess.
 
-Built as a **thesis project**, staged across six MVPs. Ingestion, extraction, chunking and embedding are complete and tagged `v3.0.0` (MVP v1-v3). MVP v4 is in progress: a semantic search endpoint is built and tested, and retrieval quality has a measured baseline. Text cleaning comes next, measured against that same baseline, then a source-cited answer endpoint. A bounded self-correction loop, orchestration and production deployment follow through MVP v6.
+Built as a **thesis project**, staged across six MVPs. Ingestion, extraction, chunking and embedding are complete and tagged `v4.0.0` (MVP v1-v4). MVP v4 is in progress: a semantic search endpoint is built and tested, and retrieval quality has a measured baseline. Text cleaning comes next, measured against that same baseline, then a source-cited answer endpoint. A bounded self-correction loop, orchestration and production deployment follow through MVP v6.
 
 ```mermaid
 ---
